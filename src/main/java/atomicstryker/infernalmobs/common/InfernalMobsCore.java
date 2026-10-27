@@ -636,6 +636,23 @@ public class InfernalMobsCore implements ModInitializer {
         }
     }
 
+    /**
+     * @return names of the enabled modifiers, as accepted by stringToMobModifiers
+     */
+    public List<String> getModifierNames() {
+        List<String> names = new ArrayList<>();
+        if (mobMods != null) {
+            for (Class<? extends MobModifier> c : mobMods) {
+                try {
+                    names.add(c.getConstructor().newInstance().getModName());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return names;
+    }
+
     private MobModifier stringToMobModifiers(String buffer) {
         MobModifier lastMod = null;
 
