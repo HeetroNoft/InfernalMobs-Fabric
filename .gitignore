@@ -1,15 +1,27 @@
-*/bin/*
-.metadata/
-.recommenders/*
-*.gradle*
-*/build/tmp/*
-*/build/sources/*
-*/build/*
-*/out/
-*/run/
-*/.idea/
-*/classes/
-*/*.iml
-.idea/
-FinderCompass/project/target/
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.recommenders
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+classes
+
+# tool state
 .omc

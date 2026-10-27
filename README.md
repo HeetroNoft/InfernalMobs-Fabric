@@ -1,20 +1,36 @@
-If you want to use these mods in modpacks, see the license at the bottom of https://atomicstryker.github.io/
+# Infernal Mobs (Fabric)
 
-This readme applies to Minecraft 1.17 and newer, and only to mods which have been updated to the respective versions of minecraft.
-There is outdated/unmaintained mods in the repository also, be aware.
+Fabric port of AtomicStryker's Infernal Mobs: hostile mobs randomly spawn with Diablo-style modifiers and drop loot rewards when defeated.
 
-In the respective mod folder, run "gradlew build" and verify it succeeds.
-If it does not, the mod might lack the basic setup for the newer MC versions, to be done in gradle.build and by replacing the gradle wrapper to one taken from a matching forge MDK.
+- Minecraft 26.2
+- Fabric Loader 0.20.1+
+- Fabric API (required)
 
-Note: For older versions of Minecraft, there is always the possibility the online resources that were used for building mods no longer exist in their old forms.
-If you need to build for an old MC and this doesn't work out of the box, use google, usually there is a fix or successor resource available.
+If you want to use this mod in modpacks, see the license at the bottom of <https://atomicstryker.github.io/>
 
-For NeoForge, setup of project in Intellij should be fully automatic
-Use Intellij to open the folder or the gradle.build (Open as project).
+## Building
 
+Loom requires Gradle itself to run on Java 25. Point `JAVA_HOME` to a Java 25 JDK, then:
 
-In the ideal case all that is required to upgrade to a newer MC version is changing the variables "mcversion", "version" and "mappings channel:" and also updating the "minecraft" dependency pointing to a relevant neoforge version.
-NeoForge MDK can be found here: https://github.com/orgs/NeoForgeMDKs/repositories?q=template%3Atrue+archived%3Afalse
-Use the ModDevGradle variant
+```sh
+./gradlew build
+```
 
-For really ancient (earlier than 2017) downloadable versions of my mods, see https://github.com/kevinvanrijn/atomicstrykers-files
+The jar ends up in `build/libs/`.
+
+To test in game, use `./gradlew runClient` or `./gradlew runServer`.
+
+## Configuration
+
+The config file is created on first launch at `config/infernalmobs.cfg` (JSON).
+
+## For mod developers
+
+Infernal Mobs fires two Fabric events, both in `atomicstryker.infernalmobs.common.InfernalMobsEvents`:
+
+- `MOB_FARM_DETECTED`: the AntiMobFarm check found a chunk that went over the configured damage trigger.
+- `ENTITY_TELEPORT`: a modifier is about to teleport a mob. A listener can return a different target, or `null` to cancel the teleport.
+
+## Credits
+
+Original mod by AtomicStryker: <https://github.com/AtomicStryker/atomicstrykers-minecraft-mods>
