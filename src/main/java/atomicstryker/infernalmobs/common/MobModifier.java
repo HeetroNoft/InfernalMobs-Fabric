@@ -3,6 +3,7 @@ package atomicstryker.infernalmobs.common;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.locale.Language;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -450,25 +451,15 @@ public abstract class MobModifier {
      */
     public String getEntityDisplayName(LivingEntity target) {
         if (bufferedEntityName == null) {
-            String buffer = BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).getPath();
-            String[] subStrings = buffer.split("\\."); // in case of
-            // Package.Class.EntityName
-            // derps
-            if (subStrings.length > 1) {
-                buffer = subStrings[subStrings.length - 1]; // reduce that to
-                // EntityName before
-                // proceeding
-            }
-            buffer = buffer.replaceFirst("Entity", "");
-
-            String entLoc = "translation.infernalmobs:entity." + buffer;
-            String entTrans = I18n.get(entLoc);
-            if (!entLoc.equals(entTrans)) {
-                buffer = entTrans;
-            }
+            String entLoc = "translation.infernalmobs:entity." + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).getPath();
+            // fall back to the vanilla (already localized) entity name
+            String entityName = Language.getInstance().has(entLoc) ? I18n.get(entLoc) : target.getType().getDescription().getString();
 
             // upper case entity if it isnt already
-            buffer = buffer.substring(0, 1).toUpperCase() + buffer.substring(1);
+            entityName = entityName.substring(0, 1).toUpperCase() + entityName.substring(1);
+
+            // languages with grammatical gender can provide ".f" variants of rarity, prefix and suffix keys
+            boolean feminine = "f".equals(I18n.get(entLoc + ".gender"));
 
             int size = getModSize();
 
@@ -482,27 +473,32 @@ public abstract class MobModifier {
             String modprefix = "";
             if (mod.getModNamePrefix() != null) {
                 modprefix = mod.getModNamePrefix()[target.getRandom().nextInt(mod.getModNamePrefix().length)];
-                modprefix = I18n.get("translation.infernalmobs:prefix." + modprefix);
+                modprefix = translateGendered("translation.infernalmobs:prefix." + modprefix, feminine);
             }
 
-            String prefix = size <= 5 ? ChatFormatting.AQUA + I18n.get("translation.infernalmobs:rareClass")
-                    : size <= 10 ? ChatFormatting.YELLOW + I18n.get("translation.infernalmobs:ultraClass") : ChatFormatting.GOLD + I18n.get("translation.infernalmobs:infernalClass");
+            ChatFormatting color = size <= 5 ? ChatFormatting.AQUA : size <= 10 ? ChatFormatting.YELLOW : ChatFormatting.GOLD;
+            String rarity = translateGendered(size <= 5 ? "translation.infernalmobs:rareClass"
+                    : size <= 10 ? "translation.infernalmobs:ultraClass" : "translation.infernalmobs:infernalClass", feminine);
 
-            buffer = String.format("%s %s %s", prefix, modprefix, buffer);
-
+            String suffix = "";
             if (size > 1) {
                 mod = mod.nextMod != null ? mod.nextMod : this;
                 if (mod.getModNameSuffix() != null) {
                     String pickedSuffix = mod.getModNameSuffix()[target.getRandom().nextInt(mod.getModNameSuffix().length)];
-                    pickedSuffix = I18n.get("translation.infernalmobs:suffix." + pickedSuffix);
-                    buffer = String.format("%s %s", buffer, pickedSuffix);
+                    suffix = translateGendered("translation.infernalmobs:suffix." + pickedSuffix, feminine);
                 }
             }
 
-            bufferedEntityName = buffer;
+            // word order comes from the translation: %1$s rarity, %2$s prefix, %3$s entity, %4$s suffix
+            String name = I18n.get("translation.infernalmobs:nameFormat", rarity, modprefix, entityName, suffix);
+            bufferedEntityName = color + name.replaceAll(" +", " ").trim();
         }
 
         return bufferedEntityName;
+    }
+
+    private static String translateGendered(String key, boolean feminine) {
+        return feminine && Language.getInstance().has(key + ".f") ? I18n.get(key + ".f") : I18n.get(key);
     }
 
     /**
