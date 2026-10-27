@@ -22,7 +22,7 @@ To test in game, use `./gradlew runClient` or `./gradlew runServer`.
 
 ## Configuration
 
-The config file is created on first launch at `config/infernalmobs.cfg` (JSON).
+The config file is created on first launch at `config/infernalmobs.toml` (TOML). An older `config/infernalmobs.cfg` (JSON) is converted automatically and kept as `infernalmobs.cfg.bak`.
 
 ## For mod developers
 

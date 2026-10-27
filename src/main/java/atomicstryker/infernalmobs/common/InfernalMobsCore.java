@@ -267,7 +267,7 @@ public class InfernalMobsCore implements ModInitializer {
             prepareModList();
 
             // fabric creates the config folder if it does not exist yet
-            configFile = FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.cfg").toFile();
+            configFile = FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.toml").toFile();
             loadConfig(world);
 
             LOGGER.info("InfernalMobsCore commonSetup completed! Modifiers ready: " + mobMods.size());
@@ -317,7 +317,7 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     /**
-     * Forge Config file
+     * TOML config file, a legacy json infernalmobs.cfg is migrated on first load
      */
     private void loadConfig(Level world) {
         InfernalMobsConfig defaultConfig = new InfernalMobsConfig();
@@ -394,7 +394,8 @@ public class InfernalMobsCore implements ModInitializer {
         }
         defaultConfig.setModsEnabled(modsEnabledMap);
 
-        config = GsonConfig.loadConfigWithDefault(InfernalMobsConfig.class, configFile, defaultConfig);
+        TomlConfig.migrateLegacyJson(InfernalMobsConfig.class, FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.cfg").toFile(), configFile);
+        config = TomlConfig.loadConfigWithDefault(InfernalMobsConfig.class, configFile, defaultConfig);
 
         lootItemDropsElite = new ItemConfigHelper(config.getDroppedItemIDsElite(), LOGGER, world.registryAccess());
         lootItemDropsUltra = new ItemConfigHelper(config.getDroppedItemIDsUltra(), LOGGER, world.registryAccess());
@@ -472,7 +473,7 @@ public class InfernalMobsCore implements ModInitializer {
         boolean result = true;
         if (!config.getPermittedentities().containsKey(entName)) {
             config.getPermittedentities().put(entName, true);
-            GsonConfig.saveConfig(config, configFile);
+            TomlConfig.saveConfig(config, configFile);
         } else {
             result = config.getPermittedentities().get(entName);
             classesAllowedMap.put(entName, result);
@@ -489,7 +490,7 @@ public class InfernalMobsCore implements ModInitializer {
         boolean result = false;
         if (!config.getEntitiesalwaysinfernal().containsKey(entName)) {
             config.getEntitiesalwaysinfernal().put(entName, false);
-            GsonConfig.saveConfig(config, configFile);
+            TomlConfig.saveConfig(config, configFile);
         } else {
             result = config.getEntitiesalwaysinfernal().get(entName);
             classesForcedMap.put(entName, result);
@@ -506,7 +507,7 @@ public class InfernalMobsCore implements ModInitializer {
         double result = entity.getMaxHealth();
         if (!config.getEntitybasehealth().containsKey(entName)) {
             config.getEntitybasehealth().put(entName, (double) entity.getMaxHealth());
-            GsonConfig.saveConfig(config, configFile);
+            TomlConfig.saveConfig(config, configFile);
         } else {
             result = config.getEntitybasehealth().get(entName);
             classesHealthMap.put(entName, result);

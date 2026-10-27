@@ -106,7 +106,7 @@ public class EntityEventHandler {
                         }
                     } else {
                         damageMap.put(cpair, value + damage);
-                        GsonConfig.saveConfig(InfernalMobsCore.instance().config, InfernalMobsCore.instance().configFile);
+                        TomlConfig.saveConfig(InfernalMobsCore.instance().config, InfernalMobsCore.instance().configFile);
                     }
                 }
             }
