@@ -12,3 +12,4 @@
 */*.iml
 .idea/
 FinderCompass/project/target/
+.omc
