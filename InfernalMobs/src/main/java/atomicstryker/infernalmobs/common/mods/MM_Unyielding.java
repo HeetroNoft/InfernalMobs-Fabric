@@ -1,7 +1,6 @@
 package atomicstryker.infernalmobs.common.mods;
 
 import atomicstryker.infernalmobs.common.MobModifier;
-import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
 
 public class MM_Unyielding extends MobModifier {
 
@@ -22,8 +21,8 @@ public class MM_Unyielding extends MobModifier {
     }
 
     @Override
-    public void onKnockBack(LivingKnockBackEvent event) {
-        event.setCanceled(true);
+    public boolean onKnockBack() {
+        return true;
     }
 
     @Override

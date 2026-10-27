@@ -9,59 +9,53 @@ import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.KnockBackPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import atomicstryker.infernalmobs.common.network.VelocityPacket;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Enemy;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-import java.io.File;
-
-public class InfernalMobsClient {
-
-    private static InfernalMobsClient INSTANCE;
-
-    public InfernalMobsClient() {
-        INSTANCE = this;
-    }
-
-    public static InfernalMobsClient instance() {
-        return INSTANCE;
-    }
+public class InfernalMobsClient implements ClientModInitializer {
 
     private static Minecraft mc;
 
-    @SubscribeEvent
-    public void playerLoginToServer(ClientPlayerNetworkEvent.LoggingIn evt) {
-        // client starting point, also local servers
+    @Override
+    public void onInitializeClient() {
         mc = Minecraft.getInstance();
-        InfernalMobsCore.instance().initIfNeeded(evt.getPlayer().level());
+
+        ClientPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, (packet, context) -> onHealthPacket(packet.entID(), packet.health(), packet.maxhealth()));
+        ClientPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, (packet, context) -> onMobModsPacketToClient(packet));
+        ClientPlayNetworking.registerGlobalReceiver(AirPacket.TYPE, (packet, context) -> OverlayChoking.handleAirPacket(packet));
+        ClientPlayNetworking.registerGlobalReceiver(VelocityPacket.TYPE, (packet, context) -> mc.player.push(packet.xv(), packet.yv(), packet.zv()));
+        ClientPlayNetworking.registerGlobalReceiver(KnockBackPacket.TYPE, (packet, context) -> MM_Gravity.knockBack(mc.player, packet.xv(), packet.zv()));
+
+        // client starting point, also local servers
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> InfernalMobsCore.instance().initIfNeeded(handler.getLevel()));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SidedCache.getInfernalMobs(handler.getLevel()).clear());
+        ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, level) -> InfernalMobsCore.clearAllElitesOfLevel(level));
+        ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> onEntityJoinedWorld(entity));
+        ClientTickEvents.END_LEVEL_TICK.register(level -> InfernalMobsCore.instance().onTick(level));
+
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossbar"), new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_choking"), new OverlayChoking.InfernalMobsChokingGuiOverlay());
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossglow"), new RendererBossGlow.InfernalMobsBossGlowOverlay());
     }
 
-    @SubscribeEvent
-    public void onEntityJoinedWorld(EntityJoinLevelEvent event) {
-        if (event.getLevel().isClientSide() && mc.player != null && (event.getEntity() instanceof Mob || (event.getEntity() instanceof LivingEntity && event.getEntity() instanceof Enemy))) {
-            MobModsPacket mobModsPacket = new MobModsPacket(mc.player.getName().getString(), event.getEntity().getId(), (byte) 0);
-            ClientPacketDistributor.sendToServer(mobModsPacket);
-            InfernalMobsCore.LOGGER.trace("onEntityJoinedWorld {}, ent-id {} querying modifiers from server", event.getEntity(), event.getEntity().getId());
+    private void onEntityJoinedWorld(Entity entity) {
+        if (mc.player != null && (entity instanceof Mob || (entity instanceof LivingEntity && entity instanceof Enemy))) {
+            MobModsPacket mobModsPacket = new MobModsPacket(mc.player.getName().getString(), entity.getId(), (byte) 0);
+            sendToServer(mobModsPacket);
+            InfernalMobsCore.LOGGER.trace("onEntityJoinedWorld {}, ent-id {} querying modifiers from server", entity, entity.getId());
         }
-    }
-
-    @SubscribeEvent
-    public void playerLoggedOut(ClientPlayerNetworkEvent.LoggingOut evt) {
-        if (evt.getPlayer() != null) {
-            SidedCache.getInfernalMobs(evt.getPlayer().level()).clear();
-        }
-    }
-
-    public void onHealthPacketForClient(final HealthPacket healthPacket, final IPayloadContext context) {
-        mc.submitAsync(() -> onHealthPacket(healthPacket.entID(), healthPacket.health(), healthPacket.maxhealth()));
     }
 
     private void onHealthPacket(int entID, float health, float maxhealth) {
@@ -74,23 +68,16 @@ public class InfernalMobsClient {
         }
     }
 
-    public void onKnockBackPacket(KnockBackPacket knockBackPacket, IPayloadContext playPayloadContext) {
-        mc.submitAsync(() -> MM_Gravity.knockBack(mc.player, knockBackPacket.xv(), knockBackPacket.zv()));
-    }
-
-    public void onMobModsPacketToClient(MobModsPacket mobModsPacket, IPayloadContext playPayloadContext) {
+    private void onMobModsPacketToClient(MobModsPacket mobModsPacket) {
         InfernalMobsCore.instance().addRemoteEntityModifiers(mc.level, mobModsPacket.entID(), mobModsPacket.stringData());
     }
 
-    public void onAirPacket(AirPacket airPacket, IPayloadContext playPayloadContext) {
-        mc.submitAsync(() -> OverlayChoking.handleAirPacket(airPacket, playPayloadContext));
-    }
-
-    public void onVelocityPacket(VelocityPacket velocityPacket, IPayloadContext playPayloadContext) {
-        mc.submitAsync(() -> mc.player.push(velocityPacket.xv(), velocityPacket.yv(), velocityPacket.zv()));
-    }
-
-    public static File getMcFolder() {
-        return Minecraft.getInstance().gameDirectory;
+    /**
+     * packets are optional, only send them if the server has Infernal Mobs installed
+     */
+    public static void sendToServer(CustomPacketPayload payload) {
+        if (ClientPlayNetworking.canSend(payload.type())) {
+            ClientPlayNetworking.send(payload);
+        }
     }
 }

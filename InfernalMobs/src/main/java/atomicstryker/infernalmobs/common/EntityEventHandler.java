@@ -1,22 +1,10 @@
 package atomicstryker.infernalmobs.common;
 
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
-import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
-import net.neoforged.neoforge.event.entity.living.LivingEvent;
-import net.neoforged.neoforge.event.entity.living.LivingFallEvent;
-import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
-import net.neoforged.neoforge.event.level.ChunkEvent;
-import net.neoforged.neoforge.event.tick.EntityTickEvent;
 
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -27,74 +15,74 @@ public class EntityEventHandler {
     private long nextMapEvaluation;
 
     /**
-     * Links the Forge Event Handler to the registered Entity MobModifier Events
+     * Links the Fabric events and mixin hooks to the registered Entity MobModifier Events
      * (if present) Also keeps track of the anti mobfarm mechanic if enabled
      */
     public EntityEventHandler() {
         nextMapEvaluation = System.currentTimeMillis();
     }
 
-    @SubscribeEvent
-    public void onEntityJoinedWorld(EntityJoinLevelEvent event) {
+    public void onEntityJoinedWorld(Entity entity) {
         // make sure we are not catching items or player entities in this
-        if (event.getEntity() instanceof LivingEntity && event.getEntity() instanceof Enemy) {
-            String savedMods = event.getEntity().getPersistentData().getString(InfernalMobsCore.instance().getNBTTag()).orElse("");
+        if (entity instanceof LivingEntity livingEntity && entity instanceof Enemy) {
+            String savedMods = InfernalMobsData.getSavedMods(livingEntity);
             if (!savedMods.isEmpty() && !savedMods.equals(InfernalMobsCore.instance().getNBTMarkerForNonInfernalEntities())) {
-                InfernalMobsCore.instance().addEntityModifiersByString((LivingEntity) event.getEntity(), savedMods);
+                InfernalMobsCore.instance().addEntityModifiersByString(livingEntity, savedMods);
             } else {
-                InfernalMobsCore.instance().processEntitySpawn((LivingEntity) event.getEntity());
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public void onEntityLivingDeath(LivingDeathEvent event) {
-        if (!event.getEntity().level().isClientSide()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
-            if (mod != null) {
-                if (mod.onDeath()) {
-                    event.setCanceled(true);
-                }
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public void onEntityLivingSetAttackTarget(LivingChangeTargetEvent event) {
-        if (!event.getEntity().level().isClientSide()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
-            if (mod != null) {
-                mod.onSetAttackTarget(event.getEntity(), event.getNewAboutToBeSetTarget());
+                InfernalMobsCore.instance().processEntitySpawn(livingEntity);
             }
         }
     }
 
     /**
-     * Hook into EntityLivingHurt. Is always serverside, assured by mc itself
+     * @return true if the death should be aborted
      */
-    @SubscribeEvent
-    public void onEntityLivingHurt(LivingDamageEvent.Pre event) {
+    public boolean onEntityLivingDeath(LivingEntity entity) {
+        if (!entity.level().isClientSide()) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
+            if (mod != null) {
+                return mod.onDeath();
+            }
+        }
+        return false;
+    }
+
+    public void onEntityLivingSetAttackTarget(LivingEntity entity, LivingEntity newTarget) {
+        if (!entity.level().isClientSide()) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
+            if (mod != null) {
+                mod.onSetAttackTarget(entity, newTarget);
+            }
+        }
+    }
+
+    /**
+     * Hook into LivingEntity#actuallyHurt. Is always serverside, assured by mc itself
+     *
+     * @return damage to be applied after the modifiers processed it
+     */
+    public float onEntityLivingHurt(LivingEntity entity, DamageSource source, float damage) {
         // dont allow masochism
-        if (event.getSource().getDirectEntity() != event.getEntity()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
+        if (source.getDirectEntity() != entity) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 // note we dont use original damage so mods can chain modify
-                event.setNewDamage(mod.onHurt(event.getEntity(), event.getSource(), event.getNewDamage()));
+                damage = mod.onHurt(entity, source, damage);
             }
 
             /*
              * We use the Hook two-sided, both with the Mob as possible target
              * and attacker
              */
-            Entity attacker = event.getSource().getDirectEntity();
+            Entity attacker = source.getDirectEntity();
             if (attacker == null) {
                 // if damage does not have a defined source, ignore it
-                return;
+                return damage;
             }
             if (attacker instanceof LivingEntity) {
                 mod = InfernalMobsCore.getMobModifiers((LivingEntity) attacker);
                 if (mod != null) {
-                    event.setNewDamage(mod.onAttack(event.getEntity(), event.getSource(), event.getNewDamage()));
+                    damage = mod.onAttack(entity, source, damage);
                 }
             }
 
@@ -103,67 +91,68 @@ public class EntityEventHandler {
                  * check for an environmental/automated damage type, aka mob farms. FakePlayer is gone so we check for
                  * Player i guess
                  */
-                if (event.getSource() == attacker.damageSources().cactus() || event.getSource() == attacker.damageSources().drown() || event.getSource() == attacker.damageSources().fall() || event.getSource() == attacker.damageSources().inWall()
-                        || event.getSource() == attacker.damageSources().lava() || event.getSource().getDirectEntity() instanceof Player) {
-                    Integer[] cpair = new Integer[]{(int) event.getEntity().getX(), (int) event.getEntity().getZ()};
+                if (source == attacker.damageSources().cactus() || source == attacker.damageSources().drown() || source == attacker.damageSources().fall() || source == attacker.damageSources().inWall()
+                        || source == attacker.damageSources().lava() || source.getDirectEntity() instanceof Player) {
+                    Integer[] cpair = new Integer[]{(int) entity.getX(), (int) entity.getZ()};
                     Float value = damageMap.get(cpair);
                     if (value == null) {
                         for (Entry<Integer[], Float> e : damageMap.entrySet()) {
                             if (Math.abs(e.getKey()[0] - cpair[0]) < 3) {
                                 if (Math.abs(e.getKey()[1] - cpair[1]) < 3) {
-                                    e.setValue(e.getValue() + event.getNewDamage());
+                                    e.setValue(e.getValue() + damage);
                                     break;
                                 }
                             }
                         }
                     } else {
-                        damageMap.put(cpair, value + event.getNewDamage());
+                        damageMap.put(cpair, value + damage);
                         GsonConfig.saveConfig(InfernalMobsCore.instance().config, InfernalMobsCore.instance().configFile);
                     }
                 }
             }
         }
+        return damage;
     }
 
     /**
-     * Hook into LivingKnockBackEvent. Is always serverside, assured by mc itself
+     * Hook into LivingEntity#knockback
+     *
+     * @return true if the knockback should be canceled
      */
-    @SubscribeEvent
-    public void onEntityLivingKnockback(LivingKnockBackEvent event) {
-        MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
-        if (mod != null) {
-            mod.onKnockBack(event);
-        }
+    public boolean onEntityLivingKnockback(LivingEntity entity) {
+        MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
+        return mod != null && mod.onKnockBack();
     }
 
-    @SubscribeEvent
-    public void onEntityLivingFall(LivingFallEvent event) {
-        if (!event.getEntity().level().isClientSide()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
+    /**
+     * @return true if the fall damage should be canceled
+     */
+    public boolean onEntityLivingFall(LivingEntity entity, double distance) {
+        if (!entity.level().isClientSide()) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
-                event.setCanceled(mod.onFall(event.getDistance()));
+                return mod.onFall(distance);
+            }
+        }
+        return false;
+    }
+
+    public void onEntityLivingJump(LivingEntity entity) {
+        if (!entity.level().isClientSide()) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
+            if (mod != null) {
+                mod.onJump(entity);
             }
         }
     }
 
-    @SubscribeEvent
-    public void onEntityLivingJump(LivingEvent.LivingJumpEvent event) {
-        if (!event.getEntity().level().isClientSide()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
-            if (mod != null) {
-                mod.onJump(event.getEntity());
-            }
-        }
-    }
-
-    @SubscribeEvent
-    public void onEntityLivingUpdate(EntityTickEvent.Post event) {
-        if (!event.getEntity().level().isClientSide() && event.getEntity() instanceof LivingEntity) {
-            LivingEntity livingEntity = (LivingEntity) event.getEntity();
+    public void onEntityLivingUpdate(Entity entity) {
+        if (!entity.level().isClientSide() && entity instanceof LivingEntity) {
+            LivingEntity livingEntity = (LivingEntity) entity;
 
             // workaround to get save-loaded infernal entities working, init them on their first living tick
-            if (event.getEntity().tickCount == 1) {
-                String savedMods = event.getEntity().getPersistentData().getString(InfernalMobsCore.instance().getNBTTag()).orElse("");
+            if (entity.tickCount == 1) {
+                String savedMods = InfernalMobsData.getSavedMods(livingEntity);
                 if (!savedMods.isEmpty() && !savedMods.equals(InfernalMobsCore.instance().getNBTMarkerForNonInfernalEntities())) {
                     InfernalMobsCore.instance().addEntityModifiersByString(livingEntity, savedMods);
                 }
@@ -190,7 +179,7 @@ public class EntityEventHandler {
                     if (maxC != null) {
                         System.out.println("Infernal Mobs AntiMobFarm damage check, max detected chunk damage value " + maxDamage + " near coords " + maxC[0] + ", " + maxC[1]);
                         if (maxDamage > InfernalMobsCore.instance().config.getMobFarmDamageTrigger()) {
-                            NeoForge.EVENT_BUS.post(new MobFarmDetectedEvent(event.getEntity().level().getChunk(maxC[0], maxC[1]), InfernalMobsCore.instance().config.getMobFarmCheckIntervals(), maxDamage));
+                            InfernalMobsEvents.MOB_FARM_DETECTED.invoker().onMobFarmDetected(entity.level().getChunk(maxC[0], maxC[1]), InfernalMobsCore.instance().config.getMobFarmCheckIntervals(), maxDamage);
                         }
                     }
                     damageMap.clear();
@@ -200,25 +189,13 @@ public class EntityEventHandler {
         }
     }
 
-    @SubscribeEvent
-    public void onEntityLivingDrops(LivingDropsEvent event) {
-        if (!event.getEntity().level().isClientSide()) {
-            MobModifier mod = InfernalMobsCore.getMobModifiers(event.getEntity());
+    public void onEntityLivingDrops(LivingEntity entity, DamageSource source, boolean recentlyHit) {
+        if (!entity.level().isClientSide()) {
+            MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
-                mod.onDropItems(event.getEntity(), event.getSource(), event.getDrops(), event.isRecentlyHit());
-                InfernalMobsCore.removeEntFromElites(event.getEntity());
+                mod.onDropItems(entity, source, recentlyHit);
+                InfernalMobsCore.removeEntFromElites(entity);
             }
-        }
-    }
-
-    public static class MobFarmDetectedEvent extends ChunkEvent {
-        public final long triggeringInterval;
-        public final float triggeringDamage;
-
-        public MobFarmDetectedEvent(LevelChunk chunk, long ti, float td) {
-            super(chunk);
-            triggeringInterval = ti;
-            triggeringDamage = td;
         }
     }
 }

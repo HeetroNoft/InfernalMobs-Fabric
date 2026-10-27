@@ -35,11 +35,26 @@ import atomicstryker.infernalmobs.common.network.KnockBackPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import atomicstryker.infernalmobs.common.network.VelocityPacket;
 import com.google.common.collect.Lists;
+import com.mojang.brigadier.CommandDispatcher;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -59,20 +74,6 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import net.neoforged.neoforge.event.tick.LevelTickEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -86,8 +87,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-@Mod(InfernalMobsCore.MOD_ID)
-public class InfernalMobsCore {
+public class InfernalMobsCore implements ModInitializer {
 
     public static final String MOD_ID = "infernalmobs";
 
@@ -113,8 +113,10 @@ public class InfernalMobsCore {
      * the players by timer if the mod didn't remove them
      */
     private HashMap<String, Long> modifiedPlayerTimes;
+    private EntityEventHandler entityEventHandler;
 
-    public InfernalMobsCore(IEventBus modEventBus) {
+    @Override
+    public void onInitialize() {
         instance = this;
 
         nextExistCheckTime = System.currentTimeMillis();
@@ -123,66 +125,45 @@ public class InfernalMobsCore {
         classesHealthMap = new HashMap<>();
         modifiedPlayerTimes = new HashMap<>();
 
-        NeoForge.EVENT_BUS.register(this);
-
-        NeoForge.EVENT_BUS.register(new EntityEventHandler());
-        NeoForge.EVENT_BUS.register(new SaveEventHandler());
-
-        if (FMLEnvironment.getDist().isClient()) {
-            NeoForge.EVENT_BUS.register(new InfernalMobsClient());
-        }
-
         LOGGER = LogManager.getLogger();
 
-        modEventBus.addListener(this::registerNetworkingServer);
+        InfernalMobsData.init();
+
+        entityEventHandler = new EntityEventHandler();
+        SaveEventHandler saveEventHandler = new SaveEventHandler();
+
+        ServerLifecycleEvents.SERVER_STARTED.register(this::commonSetup);
+        CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> registerCommands(dispatcher));
+        ServerTickEvents.END_LEVEL_TICK.register(this::onTick);
+        ServerLevelEvents.UNLOAD.register((server, level) -> saveEventHandler.onWorldSave(level));
+        ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> entityEventHandler.onEntityJoinedWorld(entity));
+        ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !entityEventHandler.onEntityLivingDeath(entity));
+
+        registerNetworkingServer();
     }
 
-    private void registerNetworkingServer(final RegisterPayloadHandlersEvent event) {
-        // the optional method gives us a registrar that does non-mandatory packets
+    public EntityEventHandler getEntityEventHandler() {
+        return entityEventHandler;
+    }
+
+    private void registerNetworkingServer() {
+        // packets are non-mandatory, every send checks canSend first
         // so clients having the mod can still connect to servers which dont have it
-        final PayloadRegistrar registrar = event.registrar(MOD_ID).optional();
-        registrar.playBidirectional(HealthPacket.TYPE, HealthPacket.STREAM_CODEC,
-                instance()::onHealthPacket, instance()::onHealthPacketForClient);
-        registrar.playBidirectional(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC,
-                instance()::onMobModsPacket, instance()::onMobModsPacketForClient);
+        PayloadTypeRegistry.serverboundPlay().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
 
-        registrar.playToClient(AirPacket.TYPE, AirPacket.STREAM_CODEC, instance()::onAirPacketForClient);
-        registrar.playToClient(VelocityPacket.TYPE, VelocityPacket.STREAM_CODEC, instance()::onVelocityPacketForClient);
-        registrar.playToClient(KnockBackPacket.TYPE, KnockBackPacket.STREAM_CODEC, instance()::onKnockBackPacketForClient);
+        PayloadTypeRegistry.clientboundPlay().register(AirPacket.TYPE, AirPacket.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(VelocityPacket.TYPE, VelocityPacket.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(KnockBackPacket.TYPE, KnockBackPacket.STREAM_CODEC);
+
+        ServerPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, this::onHealthPacket);
+        ServerPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, this::onMobModsPacket);
     }
 
-    private void onHealthPacketForClient(HealthPacket healthPacket, IPayloadContext playPayloadContext) {
-        if (FMLEnvironment.getDist().isClient()) {
-            InfernalMobsClient.instance().onHealthPacketForClient(healthPacket, playPayloadContext);
-        }
-    }
-
-    private void onKnockBackPacketForClient(KnockBackPacket knockBackPacket, IPayloadContext playPayloadContext) {
-        if (FMLEnvironment.getDist().isClient()) {
-            InfernalMobsClient.instance().onKnockBackPacket(knockBackPacket, playPayloadContext);
-        }
-    }
-
-    private void onMobModsPacketForClient(MobModsPacket mobModsPacket, IPayloadContext playPayloadContext) {
-        if (FMLEnvironment.getDist().isClient()) {
-            InfernalMobsClient.instance().onMobModsPacketToClient(mobModsPacket, playPayloadContext);
-        }
-    }
-
-    private void onAirPacketForClient(AirPacket airPacket, IPayloadContext playPayloadContext) {
-        if (FMLEnvironment.getDist().isClient()) {
-            InfernalMobsClient.instance().onAirPacket(airPacket, playPayloadContext);
-        }
-    }
-
-    private void onVelocityPacketForClient(VelocityPacket velocityPacket, IPayloadContext playPayloadContext) {
-        if (FMLEnvironment.getDist().isClient()) {
-            InfernalMobsClient.instance().onVelocityPacket(velocityPacket, playPayloadContext);
-        }
-    }
-
-    private void onMobModsPacket(MobModsPacket mobModsPacket, IPayloadContext playPayloadContext) {
-        ServerPlayer p = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayerByName(mobModsPacket.stringData());
+    private void onMobModsPacket(MobModsPacket mobModsPacket, ServerPlayNetworking.Context context) {
+        ServerPlayer p = context.server().getPlayerList().getPlayerByName(mobModsPacket.stringData());
         InfernalMobsCore.LOGGER.trace("player {} from string {} querying server for mods of entity id {}", p, mobModsPacket.stringData(), mobModsPacket.entID());
         if (p != null) {
             Entity ent = p.level().getEntity(mobModsPacket.entID());
@@ -193,22 +174,22 @@ public class InfernalMobsCore {
                 if (mod != null) {
                     InfernalMobsCore.LOGGER.trace("server sending mods {} for ent-ID {}", mod.getLinkedModNameUntranslated(), mobModsPacket.entID());
                     MobModsPacket response = new MobModsPacket(mod.getLinkedModNameUntranslated(), mobModsPacket.entID(), (byte) 1);
-                    PacketDistributor.sendToPlayer(p, response);
+                    sendToPlayer(p, response);
                     InfernalMobsCore.instance().sendHealthPacket(e);
                 }
             }
         }
     }
 
-    private void onHealthPacket(HealthPacket healthPacket, IPayloadContext playPayloadContext) {
-        ServerPlayer p = ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayerByName(healthPacket.stringData());
+    private void onHealthPacket(HealthPacket healthPacket, ServerPlayNetworking.Context context) {
+        ServerPlayer p = context.server().getPlayerList().getPlayerByName(healthPacket.stringData());
         if (p != null) {
             Entity ent = p.level().getEntity(healthPacket.entID());
             if (ent instanceof LivingEntity e) {
                 MobModifier mod = InfernalMobsCore.getMobModifiers(e);
                 if (mod != null) {
                     HealthPacket response = new HealthPacket(healthPacket.stringData(), healthPacket.entID(), e.getHealth(), e.getMaxHealth());
-                    PacketDistributor.sendToPlayer(p, response);
+                    sendToPlayer(p, response);
                 }
             }
         }
@@ -228,18 +209,21 @@ public class InfernalMobsCore {
 
     public static boolean isBlockedBeingInfernal(LivingEntity ent) {
         // check if the entity previously passed infernal mob generation without getting a mod
-        CompoundTag persistentData = ent.getPersistentData();
-        String storedInfernalTag = persistentData.getString(instance().getNBTTag()).orElse("");
+        String storedInfernalTag = InfernalMobsData.getSavedMods(ent);
         boolean result = !storedInfernalTag.isEmpty() && instance().getNBTMarkerForNonInfernalEntities().equals(storedInfernalTag);
         if (result) {
             InfernalMobsCore.LOGGER.debug("entity {} was spawned in unmodified before, not modifying it", ent);
             return true;
         }
-        // check the configurable list of banned entity nbt tags
-        for (String bannedTag : instance().config.getEntityTagBlackList()) {
-            // example: 'affixes' is used by the Champions mod
-            if (persistentData.contains(bannedTag)) {
-                return true;
+        // check the configurable list of banned entity nbt keys and scoreboard tags
+        List<String> entityTagBlackList = instance().config.getEntityTagBlackList();
+        if (!entityTagBlackList.isEmpty()) {
+            CompoundTag entityNbt = InfernalMobsData.saveEntityNbt(ent);
+            for (String bannedTag : entityTagBlackList) {
+                // example: 'affixes' is used by the Champions mod
+                if (InfernalMobsData.hasTag(ent, bannedTag, entityNbt)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -247,7 +231,7 @@ public class InfernalMobsCore {
 
     public static void setMobWasSpawnedBefore(LivingEntity ent) {
         // if infernal mobs decides not to give an entity mods, we still have to mark it to make sure it never goes through "spawning" again for infernal mobs
-        ent.getPersistentData().putString(InfernalMobsCore.instance().getNBTTag(), instance().getNBTMarkerForNonInfernalEntities());
+        InfernalMobsData.setSavedMods(ent, instance().getNBTMarkerForNonInfernalEntities());
     }
 
     public static void clearAllElitesOfLevel(Level level) {
@@ -270,10 +254,9 @@ public class InfernalMobsCore {
         return "notInfernal";
     }
 
-    @SubscribeEvent
-    public void commonSetup(ServerStartedEvent evt) {
+    private void commonSetup(MinecraftServer server) {
         // dedicated server starting point
-        initIfNeeded(evt.getServer().getAllLevels().iterator().next());
+        initIfNeeded(server.getAllLevels().iterator().next());
     }
 
     /**
@@ -283,15 +266,8 @@ public class InfernalMobsCore {
         if (mobMods == null) {
             prepareModList();
 
-            Path mcFolder;
-            if (world.isClientSide()) {
-                mcFolder = InfernalMobsClient.getMcFolder().toPath();
-            } else {
-                MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-                mcFolder = server.getServerDirectory();
-            }
-
-            configFile = mcFolder.resolve("config" + File.separatorChar + "infernalmobs.cfg").toFile();
+            // fabric creates the config folder if it does not exist yet
+            configFile = FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.cfg").toFile();
             loadConfig(world);
 
             LOGGER.info("InfernalMobsCore commonSetup completed! Modifiers ready: " + mobMods.size());
@@ -299,10 +275,9 @@ public class InfernalMobsCore {
         }
     }
 
-    @SubscribeEvent
-    public void registerCommands(RegisterCommandsEvent evt) {
-        evt.getDispatcher().register(InfernalCommandFindEntityClass.BUILDER);
-        evt.getDispatcher().register(InfernalCommandSpawnInfernal.BUILDER);
+    private void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(InfernalCommandFindEntityClass.BUILDER);
+        dispatcher.register(InfernalCommandSpawnInfernal.BUILDER);
     }
 
     /**
@@ -784,47 +759,56 @@ public class InfernalMobsCore {
     public void sendVelocityPacket(ServerPlayer target, float xVel, float yVel, float zVel) {
         if (getIsEntityAllowedTarget(target)) {
             VelocityPacket velocityPacket = new VelocityPacket(xVel, yVel, zVel);
-            PacketDistributor.sendToPlayer(target, velocityPacket);
+            sendToPlayer(target, velocityPacket);
         }
     }
 
     public void sendKnockBackPacket(ServerPlayer target, float xVel, float zVel) {
         if (getIsEntityAllowedTarget(target)) {
             KnockBackPacket knockBackPacket = new KnockBackPacket(xVel, zVel);
-            PacketDistributor.sendToPlayer(target, knockBackPacket);
+            sendToPlayer(target, knockBackPacket);
         }
     }
 
     public void sendHealthPacket(LivingEntity mob) {
         HealthPacket healthPacket = new HealthPacket("", mob.getId(), mob.getHealth(), mob.getMaxHealth());
-        PacketDistributor.sendToPlayersTrackingEntity(mob, healthPacket);
+        for (ServerPlayer player : PlayerLookup.tracking(mob)) {
+            sendToPlayer(player, healthPacket);
+        }
     }
 
     public void sendHealthRequestPacket(String playerName, LivingEntity mob) {
         HealthPacket healthPacket = new HealthPacket(playerName, mob.getId(), 0f, 0f);
-        ClientPacketDistributor.sendToServer(healthPacket);
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            InfernalMobsClient.sendToServer(healthPacket);
+        }
     }
 
     public void sendAirPacket(ServerPlayer target, int lastAir) {
         if (getIsEntityAllowedTarget(target)) {
             AirPacket airPacket = new AirPacket(lastAir);
-            PacketDistributor.sendToPlayer(target, airPacket);
+            sendToPlayer(target, airPacket);
         }
     }
 
-    @SubscribeEvent
-    public void onTick(LevelTickEvent.Post tick) {
+    private static void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
+        if (ServerPlayNetworking.canSend(player, payload.type())) {
+            ServerPlayNetworking.send(player, payload);
+        }
+    }
+
+    public void onTick(Level level) {
         if (System.currentTimeMillis() > nextExistCheckTime) {
             nextExistCheckTime = System.currentTimeMillis() + existCheckDelay;
-            Map<LivingEntity, MobModifier> mobsmap = SidedCache.getInfernalMobs(tick.getLevel());
+            Map<LivingEntity, MobModifier> mobsmap = SidedCache.getInfernalMobs(level);
             // System.out.println("Removed unloaded Entity "+mob+" with ID
             // "+mob.getEntityId()+" from rareMobs");
             mobsmap.keySet().stream().filter(this::filterMob).forEach(InfernalMobsCore::removeEntFromElites);
 
-            resetModifiedPlayerEntitiesAsNeeded(tick.getLevel());
+            resetModifiedPlayerEntitiesAsNeeded(level);
         }
 
-        if (!tick.getLevel().isClientSide()) {
+        if (!level.isClientSide()) {
             infCheckA = null;
             infCheckB = null;
         }

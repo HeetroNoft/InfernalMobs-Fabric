@@ -10,7 +10,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 
 public abstract class AbstractTeleporter extends MobModifier {
 
@@ -76,12 +75,12 @@ public abstract class AbstractTeleporter extends MobModifier {
         boolean blocksMotion = destinationFloorState.blocksMotion();
         boolean isWater = destinationFloorState.getFluidState().is(FluidTags.WATER);
         if (blocksMotion && !isWater) {
-            EntityTeleportEvent forgeEvent = getForgeEvent(mob, x, y, z);
-            if (forgeEvent.isCanceled()) {
+            Vec3 target = fireTeleportEvent(mob, x, y, z);
+            if (target == null) {
                 return false;
             }
             Vec3 vec3 = mob.position();
-            boolean teleportResult = mob.randomTeleport(forgeEvent.getTargetX(), forgeEvent.getTargetY(), forgeEvent.getTargetZ(), true);
+            boolean teleportResult = mob.randomTeleport(target.x, target.y, target.z, true);
             if (teleportResult) {
                 mob.level().gameEvent(GameEvent.TELEPORT, vec3, GameEvent.Context.of(mob));
                 if (!mob.isSilent()) {
@@ -103,9 +102,12 @@ public abstract class AbstractTeleporter extends MobModifier {
         mob.playSound(SoundEvents.ENDERMAN_TELEPORT, 1.0F, 1.0F);
     }
 
-    protected EntityTeleportEvent getForgeEvent(LivingEntity mob, double x, double y, double z) {
+    /**
+     * @return the teleport target, possibly changed by event listeners, or null if a listener canceled the teleport
+     */
+    protected Vec3 fireTeleportEvent(LivingEntity mob, double x, double y, double z) {
         // this should only be called on server side which makes (ServerLevel) cast safe
-        return new EntityTeleportEvent(mob, (ServerLevel) mob.level(), x, y, z);
+        return InfernalMobsEvents.ENTITY_TELEPORT.invoker().onTeleport(mob, (ServerLevel) mob.level(), new Vec3(x, y, z));
     }
 
 }

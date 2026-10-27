@@ -1,17 +1,11 @@
 package atomicstryker.infernalmobs.common;
 
 import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.level.LevelEvent;
 
 public class SaveEventHandler {
 
-    @SubscribeEvent
-    public void onWorldSave(LevelEvent.Unload event) {
-        if (event.getLevel() instanceof Level) {
-            Level level = ((Level) event.getLevel());
-            InfernalMobsCore.clearAllElitesOfLevel(level);
-        }
+    public void onWorldSave(Level level) {
+        InfernalMobsCore.clearAllElitesOfLevel(level);
     }
 
     // DOES NOT WORK IN 1.17

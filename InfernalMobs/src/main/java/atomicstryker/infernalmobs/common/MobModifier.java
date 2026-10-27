@@ -11,11 +11,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.event.entity.living.LivingKnockBackEvent;
-
-import java.util.Collection;
 
 public abstract class MobModifier {
     private final static int TARGETING_TICKS_BEFORE_ATTACK = 30;
@@ -140,11 +136,11 @@ public abstract class MobModifier {
      * @param entity target mob to attach modifiers to
      */
     public void onSpawningCompleteStoreModsAndBuffHealth(LivingEntity entity) {
-        String oldTag = entity.getPersistentData().getString(InfernalMobsCore.instance().getNBTTag()).orElse("");
+        String oldTag = InfernalMobsData.getSavedMods(entity);
         if (!oldTag.isEmpty() && !oldTag.equals(getLinkedModNameUntranslated())) {
             InfernalMobsCore.LOGGER.info("Infernal Mobs tag mismatch!! Was [{}}], now trying to set [{}}] \n", oldTag, getLinkedModNameUntranslated());
         }
-        entity.getPersistentData().putString(InfernalMobsCore.instance().getNBTTag(), getLinkedModNameUntranslated());
+        InfernalMobsData.setSavedMods(entity, getLinkedModNameUntranslated());
 
         increaseMaxHealthForMobIfNeeded(entity);
     }
@@ -162,7 +158,7 @@ public abstract class MobModifier {
     /**
      * Passes the loot drop event to the modifier list
      */
-    public void onDropItems(LivingEntity moddedMob, DamageSource killSource, Collection<ItemEntity> drops, boolean recentlyHit) {
+    public void onDropItems(LivingEntity moddedMob, DamageSource killSource, boolean recentlyHit) {
         if (recentlyHit) {
             InfernalMobsCore.instance().dropLootForEnt(moddedMob, this);
         }
@@ -314,12 +310,10 @@ public abstract class MobModifier {
     /**
      * forward the knockback event through the modlist
      *
-     * @param event forge knockback event, note there is no source reference
+     * @return true if the knockback should be canceled
      */
-    public void onKnockBack(LivingKnockBackEvent event) {
-        if (nextMod != null) {
-            nextMod.onKnockBack(event);
-        }
+    public boolean onKnockBack() {
+        return nextMod != null && nextMod.onKnockBack();
     }
 
     /**
@@ -361,12 +355,12 @@ public abstract class MobModifier {
         if (mob.level().isClientSide() || InfernalMobsCore.instance().healthChangesDisabled()) {
             return;
         }
-        float storedMaxHealth = mob.getPersistentData().getFloat("infernalMaxHealth").orElse(0F);
+        float storedMaxHealth = InfernalMobsData.getMaxHealth(mob, 0F);
         if (storedMaxHealth < 1F) {
             actualMaxHealth = (float) (InfernalMobsCore.instance().getMobClassMaxHealth(mob) * getModSize() * InfernalMobsCore.instance().getMobModHealthFactor());
             actualHealth = actualMaxHealth;
             InfernalMobsCore.instance().setEntityHealthPastMax(mob, actualHealth);
-            mob.getPersistentData().putFloat("infernalMaxHealth", actualMaxHealth);
+            InfernalMobsData.setMaxHealth(mob, actualMaxHealth);
         } else {
             actualMaxHealth = storedMaxHealth;
         }
@@ -378,7 +372,7 @@ public abstract class MobModifier {
      */
     public float getActualMaxHealth(LivingEntity mob) {
         if (!mob.level().isClientSide() && actualMaxHealth < 1F) {
-            actualMaxHealth = mob.getPersistentData().getFloat("infernalMaxHealth").orElse(1F);
+            actualMaxHealth = InfernalMobsData.getMaxHealth(mob, 1F);
         }
         return actualMaxHealth;
     }

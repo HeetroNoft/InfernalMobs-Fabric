@@ -2,6 +2,7 @@ package atomicstryker.infernalmobs.client;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.network.AirPacket;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -10,41 +11,27 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModLoadingContext;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
-import net.neoforged.neoforge.client.gui.GuiLayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.NotNull;
 
-@EventBusSubscriber(value = Dist.CLIENT, modid = InfernalMobsCore.MOD_ID)
 public class OverlayChoking {
 
     private static final Identifier GUI_ICONS_LOCATION = Identifier.parse("textures/gui/icons.png");
     private static final Identifier AIR_SPRITE = Identifier.withDefaultNamespace("hud/air");
     private static final Identifier AIR_POPPING_SPRITE = Identifier.withDefaultNamespace("hud/air_bursting");
 
-    private static Minecraft mc;
+    private static final Minecraft mc = Minecraft.getInstance();
 
     private static int airOverrideValue = -999;
     private static long airDisplayTimeout;
 
-    public static void handleAirPacket(final AirPacket airPacket, final IPayloadContext context) {
+    public static void handleAirPacket(final AirPacket airPacket) {
         airOverrideValue = airPacket.air();
         airDisplayTimeout = System.currentTimeMillis() + 3000L;
     }
 
-    @SubscribeEvent
-    public static void registerGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAboveAll(Identifier.fromNamespaceAndPath(ModLoadingContext.get().getActiveNamespace(), InfernalMobsCore.MOD_ID + "_choking"), new InfernalMobsChokingGuiOverlay());
-        mc = Minecraft.getInstance();
-    }
-
-    public static class InfernalMobsChokingGuiOverlay implements GuiLayer {
+    public static class InfernalMobsChokingGuiOverlay implements HudElement {
         @Override
-        public void render(@NotNull GuiGraphicsExtractor guiGraphics, DeltaTracker partialTick) {
+        public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, DeltaTracker partialTick) {
             if (System.currentTimeMillis() > airDisplayTimeout) {
                 airOverrideValue = -999;
             }
