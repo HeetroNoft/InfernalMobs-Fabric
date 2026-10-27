@@ -5,6 +5,8 @@ Fabric port of AtomicStryker's Infernal Mobs: hostile mobs randomly spawn with D
 - Minecraft 26.2
 - Fabric Loader 0.20.1+
 - Fabric API (required)
+- Cloth Config (required)
+- Mod Menu (optional, adds the config screen button)
 
 If you want to use this mod in modpacks, see the license at the bottom of <https://atomicstryker.github.io/>
 
@@ -22,7 +24,7 @@ To test in game, use `./gradlew runClient` or `./gradlew runServer`.
 
 ## Configuration
 
-The config file is created on first launch at `config/InfernalMobs-common.toml`. Every setting is documented in the file with its description, default value and allowed range.
+The config file is created on first launch at `config/InfernalMobs-common.toml`. Every setting is documented in the file with its description, default value and allowed range. The config uses Cloth Config's AutoConfig, so it can also be edited in game from the Mod Menu config screen.
 
 ## For mod developers
 

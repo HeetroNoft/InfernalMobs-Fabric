@@ -1,3 +1,15 @@
+26.2.2FA
+- ported from NeoForge to Fabric, Fabric API and Cloth Config are required
+- config moved to config/InfernalMobs-common.toml, every setting is commented with its description, default and range
+- config uses Cloth Config AutoConfig, it can be edited in game from Mod Menu
+- missing or invalid config values are reset to their default when loading, out of range values are logged
+- default loot entries are now written in SNBT, example "{id:'minecraft:cookie',count:5}", old JSON entries still work
+- old infernalmobs.cfg files are not converted, a new default config is created
+- /spawninfernal now uses a standard block position (supports ~ and ^) and suggests entity ids and modifier names
+- infernal mob names use the vanilla localized entity name, word order and gendered variants come from the translation
+- added French translation
+- new mod icon
+
 26.2.2NF
 - fix default ability cooldown ModCooldownFactor being zero
 - implement mob attack target filtering similar to tamed wolf filtering, tamed or neutrals should no longer attack you

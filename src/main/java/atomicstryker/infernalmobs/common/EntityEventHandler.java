@@ -86,7 +86,7 @@ public class EntityEventHandler {
                 }
             }
 
-            if (Config.antiMobFarm) {
+            if (Config.get().antiMobFarm) {
                 /*
                  * check for an environmental/automated damage type, aka mob farms. FakePlayer is gone so we check for
                  * Player i guess
@@ -162,7 +162,7 @@ public class EntityEventHandler {
                 mod.onUpdate(livingEntity);
             }
 
-            if (Config.antiMobFarm && System.currentTimeMillis() > nextMapEvaluation) {
+            if (Config.get().antiMobFarm && System.currentTimeMillis() > nextMapEvaluation) {
                 if (!damageMap.isEmpty()) {
                     float maxDamage = 0f;
                     float val;
@@ -177,13 +177,13 @@ public class EntityEventHandler {
 
                     if (maxC != null) {
                         System.out.println("Infernal Mobs AntiMobFarm damage check, max detected chunk damage value " + maxDamage + " near coords " + maxC[0] + ", " + maxC[1]);
-                        if (maxDamage > Config.mobFarmDamageTrigger) {
-                            InfernalMobsEvents.MOB_FARM_DETECTED.invoker().onMobFarmDetected(entity.level().getChunk(maxC[0], maxC[1]), Config.mobFarmCheckIntervals, maxDamage);
+                        if (maxDamage > Config.get().mobFarmDamageTrigger) {
+                            InfernalMobsEvents.MOB_FARM_DETECTED.invoker().onMobFarmDetected(entity.level().getChunk(maxC[0], maxC[1]), Config.get().mobFarmCheckIntervals, maxDamage);
                         }
                     }
                     damageMap.clear();
                 }
-                nextMapEvaluation = System.currentTimeMillis() + Config.mobFarmCheckIntervals;
+                nextMapEvaluation = System.currentTimeMillis() + Config.get().mobFarmCheckIntervals;
             }
         }
     }

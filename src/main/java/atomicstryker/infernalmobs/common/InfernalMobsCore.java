@@ -77,7 +77,6 @@ import net.minecraft.world.level.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -125,6 +124,7 @@ public class InfernalMobsCore implements ModInitializer {
         LOGGER = LogManager.getLogger();
 
         InfernalMobsData.init();
+        Config.register();
 
         entityEventHandler = new EntityEventHandler();
         SaveEventHandler saveEventHandler = new SaveEventHandler();
@@ -213,7 +213,7 @@ public class InfernalMobsCore implements ModInitializer {
             return true;
         }
         // check the configurable list of banned entity nbt keys and scoreboard tags
-        List<String> entityTagBlackList = Config.entityTagBlackList;
+        List<String> entityTagBlackList = Config.get().entityTagBlackList;
         if (!entityTagBlackList.isEmpty()) {
             CompoundTag entityNbt = InfernalMobsData.saveEntityNbt(ent);
             for (String bannedTag : entityTagBlackList) {
@@ -311,19 +311,14 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     /**
-     * Loads config/InfernalMobs-common.toml, see {@link Config}
+     * Reads the loot lists and enabled modifiers from the config, see {@link Config}
      */
     private void loadConfig(Level world) {
-        // fabric creates the config folder if it does not exist yet
-        Path configFile = FabricLoader.getInstance().getConfigDir().resolve("InfernalMobs-common.toml");
-        Config.load(configFile);
-        LOGGER.info("InfernalMobsCore config file at: " + configFile.toAbsolutePath());
+        lootItemDropsElite = new ItemConfigHelper(Config.get().droppedItemIDsElite, LOGGER, world.registryAccess());
+        lootItemDropsUltra = new ItemConfigHelper(Config.get().droppedItemIDsUltra, LOGGER, world.registryAccess());
+        lootItemDropsInfernal = new ItemConfigHelper(Config.get().droppedItemIDsInfernal, LOGGER, world.registryAccess());
 
-        lootItemDropsElite = new ItemConfigHelper(Config.droppedItemIDsElite, LOGGER, world.registryAccess());
-        lootItemDropsUltra = new ItemConfigHelper(Config.droppedItemIDsUltra, LOGGER, world.registryAccess());
-        lootItemDropsInfernal = new ItemConfigHelper(Config.droppedItemIDsInfernal, LOGGER, world.registryAccess());
-
-        mobMods.removeIf(c -> !Config.MODS_ENABLED.getOrAdd(c.getSimpleName(), true));
+        mobMods.removeIf(c -> !Config.get().modsEnabled.computeIfAbsent(c.getSimpleName(), name -> true));
         Config.save();
     }
 
@@ -334,9 +329,9 @@ public class InfernalMobsCore implements ModInitializer {
      * @param entity Entity in question, already asserted to be instanceof Enemy
      */
     public void processEntitySpawn(LivingEntity entity) {
-        if (!entity.level().isClientSide() && Config.isLoaded()) {
+        if (!entity.level().isClientSide() && mobMods != null) {
             if (!getIsRareEntityOnline(entity) && !isBlockedBeingInfernal(entity)) {
-                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().getRandom().nextInt(Config.eliteRarity) == 0)) {
+                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().getRandom().nextInt(Config.get().eliteRarity) == 0)) {
                     try {
                         /*
                             get server world from resource location:
@@ -347,7 +342,7 @@ public class InfernalMobsCore implements ModInitializer {
                         Identifier worldIdentifier = worldRegistryKey.identifier();
 
                         // Skip Infernal-Spawn when Dimension is Blacklisted, entries look like: "minecraft:overworld"
-                        if (!Config.dimensionIDBlackList.contains(worldIdentifier.toString())) {
+                        if (!Config.get().dimensionIDBlackList.contains(worldIdentifier.toString())) {
                             MobModifier mod = instance.createMobModifiers(entity);
                             if (mod != null) {
                                 SidedCache.getInfernalMobs(entity.level()).put(entity, mod);
@@ -388,47 +383,56 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     private boolean checkEntityClassAllowed(LivingEntity entity) {
-        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.get().useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesAllowedMap.containsKey(entName)) {
             return classesAllowedMap.get(entName);
         }
 
-        boolean result = Config.PERMITTED_ENTITIES.getOrAdd(entName, true);
-        Config.save();
+        boolean result = addIfMissing(Config.get().permittedentities, entName, true);
         classesAllowedMap.put(entName, result);
         return result;
     }
 
     private boolean checkEntityClassForced(LivingEntity entity) {
-        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.get().useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesForcedMap.containsKey(entName)) {
             return classesForcedMap.get(entName);
         }
 
-        boolean result = Config.ENTITIES_ALWAYS_INFERNAL.getOrAdd(entName, false);
-        Config.save();
+        boolean result = addIfMissing(Config.get().entitiesalwaysinfernal, entName, false);
         classesForcedMap.put(entName, result);
         return result;
     }
 
     public double getMobClassMaxHealth(LivingEntity entity) {
-        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.get().useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesHealthMap.containsKey(entName)) {
             return classesHealthMap.get(entName);
         }
 
-        double result = Config.ENTITY_BASE_HEALTH.getOrAdd(entName, (double) entity.getMaxHealth());
-        Config.save();
+        double result = addIfMissing(Config.get().entitybasehealth, entName, (double) entity.getMaxHealth());
         classesHealthMap.put(entName, result);
         return result;
     }
 
+    /**
+     * @return the configured value of key, or defaultValue after adding it to the config file
+     */
+    private static <V> V addIfMissing(Map<String, V> table, String key, V defaultValue) {
+        V value = table.putIfAbsent(key, defaultValue);
+        if (value == null) {
+            Config.save();
+            return defaultValue;
+        }
+        return value;
+    }
+
     public boolean healthChangesDisabled() {
-        return Config.healthChangesDisabled;
+        return Config.get().healthChangesDisabled;
     }
 
     public double getModCooldownFactor() {
-        return Config.modCooldownFactor;
+        return Config.get().modCooldownFactor;
     }
 
     /**
@@ -456,11 +460,11 @@ public class InfernalMobsCore implements ModInitializer {
         /* lets just be lazy and scratch mods off a list copy */
         ArrayList<Class<? extends MobModifier>> possibleMods = Lists.newArrayList(mobMods);
 
-        if (entity.level().getRandom().nextInt(Config.ultraRarity) == 0) // ultra mobs
+        if (entity.level().getRandom().nextInt(Config.get().ultraRarity) == 0) // ultra mobs
         {
             number += 3 + entity.level().getRandom().nextInt(2);
 
-            if (entity.level().getRandom().nextInt(Config.infernoRarity) == 0) // infernal
+            if (entity.level().getRandom().nextInt(Config.get().infernoRarity) == 0) // infernal
             // mobs
             {
                 number += 3 + entity.level().getRandom().nextInt(2);
@@ -768,15 +772,15 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     public boolean getIsHealthBarDisabled() {
-        return Config.disableHealthBar;
+        return Config.get().disableHealthBar;
     }
 
     public double getMobModHealthFactor() {
-        return Config.modHealthFactor;
+        return Config.get().modHealthFactor;
     }
 
     public float getLimitedDamage(float test) {
-        return (float) Math.min(test, Config.maxDamage);
+        return (float) Math.min(test, Config.get().maxDamage);
     }
 
     public boolean getIsEntityAllowedTarget(Entity entity) {
