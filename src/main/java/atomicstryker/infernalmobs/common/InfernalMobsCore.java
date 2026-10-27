@@ -77,7 +77,6 @@ import net.minecraft.world.level.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,8 +94,6 @@ public class InfernalMobsCore implements ModInitializer {
     private static InfernalMobsCore instance;
     private final long existCheckDelay = 5000L;
 
-    protected File configFile;
-    protected InfernalMobsConfig config;
     private long nextExistCheckTime;
     private ItemConfigHelper lootItemDropsElite;
     private ItemConfigHelper lootItemDropsUltra;
@@ -216,7 +213,7 @@ public class InfernalMobsCore implements ModInitializer {
             return true;
         }
         // check the configurable list of banned entity nbt keys and scoreboard tags
-        List<String> entityTagBlackList = instance().config.getEntityTagBlackList();
+        List<String> entityTagBlackList = Config.entityTagBlackList;
         if (!entityTagBlackList.isEmpty()) {
             CompoundTag entityNbt = InfernalMobsData.saveEntityNbt(ent);
             for (String bannedTag : entityTagBlackList) {
@@ -266,12 +263,9 @@ public class InfernalMobsCore implements ModInitializer {
         if (mobMods == null) {
             prepareModList();
 
-            // fabric creates the config folder if it does not exist yet
-            configFile = FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.toml").toFile();
             loadConfig(world);
 
             LOGGER.info("InfernalMobsCore commonSetup completed! Modifiers ready: " + mobMods.size());
-            LOGGER.info("InfernalMobsCore commonSetup completed! config file at: " + configFile.getAbsolutePath());
         }
     }
 
@@ -317,91 +311,20 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     /**
-     * TOML config file, a legacy json infernalmobs.cfg is migrated on first load
+     * Loads config/InfernalMobs-common.toml, see {@link Config}
      */
     private void loadConfig(Level world) {
-        InfernalMobsConfig defaultConfig = new InfernalMobsConfig();
-        defaultConfig.setEliteRarity(15);
-        defaultConfig.setUltraRarity(7);
-        defaultConfig.setInfernoRarity(7);
-        defaultConfig.setUseSimpleEntityClassNames(true);
-        defaultConfig.setDisableHealthBar(false);
-        defaultConfig.setModHealthFactor(1.0D);
+        // fabric creates the config folder if it does not exist yet
+        Path configFile = FabricLoader.getInstance().getConfigDir().resolve("InfernalMobs-common.toml");
+        Config.load(configFile);
+        LOGGER.info("InfernalMobsCore config file at: " + configFile.toAbsolutePath());
 
-        List<String> dropsElite = new ArrayList<>();
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_SHOVEL), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_PICKAXE), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_AXE), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_SWORD), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_HOE), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_HELMET), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_BOOTS), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_CHESTPLATE), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_LEGGINGS), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_HELMET), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_BOOTS), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_CHESTPLATE), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_LEGGINGS), world.registryAccess()));
-        dropsElite.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.COOKIE, 5), world.registryAccess()));
-        defaultConfig.setDroppedItemIDsElite(dropsElite);
+        lootItemDropsElite = new ItemConfigHelper(Config.droppedItemIDsElite, LOGGER, world.registryAccess());
+        lootItemDropsUltra = new ItemConfigHelper(Config.droppedItemIDsUltra, LOGGER, world.registryAccess());
+        lootItemDropsInfernal = new ItemConfigHelper(Config.droppedItemIDsInfernal, LOGGER, world.registryAccess());
 
-        List<String> dropsUltra = new ArrayList<>();
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_HOE), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.BOW), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_HELMET), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_BOOTS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_CHESTPLATE), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_LEGGINGS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_HELMET), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_BOOTS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_CHESTPLATE), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.IRON_LEGGINGS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.GOLDEN_HELMET), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.GOLDEN_BOOTS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.GOLDEN_CHESTPLATE), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.GOLDEN_LEGGINGS), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.GOLDEN_APPLE, 3), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.BLAZE_POWDER, 5), world.registryAccess()));
-        dropsUltra.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.ENCHANTED_BOOK), world.registryAccess()));
-        defaultConfig.setDroppedItemIDsUltra(dropsUltra);
-
-        List<String> dropsInfernal = new ArrayList<>();
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.ENCHANTED_BOOK), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND, 3), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_SWORD), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_AXE), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_HOE), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_PICKAXE), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_SHOVEL), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_HELMET), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_BOOTS), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_CHESTPLATE), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.CHAINMAIL_LEGGINGS), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_HELMET), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_BOOTS), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_CHESTPLATE), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.DIAMOND_LEGGINGS), world.registryAccess()));
-        dropsInfernal.add(ItemConfigHelper.fromItemStack(new ItemStack(Items.ENDER_PEARL, 3), world.registryAccess()));
-        defaultConfig.setDroppedItemIDsInfernal(dropsInfernal);
-
-        defaultConfig.setMaxDamage(10D);
-        defaultConfig.setDimensionIDBlackList(new ArrayList<>());
-        defaultConfig.setModCooldownFactor(1D);
-
-        Map<String, Boolean> modsEnabledMap = new HashMap<>();
-        for (Class<?> c : mobMods) {
-            modsEnabledMap.put(c.getSimpleName(), true);
-        }
-        defaultConfig.setModsEnabled(modsEnabledMap);
-
-        TomlConfig.migrateLegacyJson(InfernalMobsConfig.class, FabricLoader.getInstance().getConfigDir().resolve("infernalmobs.cfg").toFile(), configFile);
-        config = TomlConfig.loadConfigWithDefault(InfernalMobsConfig.class, configFile, defaultConfig);
-
-        lootItemDropsElite = new ItemConfigHelper(config.getDroppedItemIDsElite(), LOGGER, world.registryAccess());
-        lootItemDropsUltra = new ItemConfigHelper(config.getDroppedItemIDsUltra(), LOGGER, world.registryAccess());
-        lootItemDropsInfernal = new ItemConfigHelper(config.getDroppedItemIDsInfernal(), LOGGER, world.registryAccess());
-
-        mobMods.removeIf(c -> !config.getModsEnabled().containsKey(c.getSimpleName()) || !config.getModsEnabled().get(c.getSimpleName()));
+        mobMods.removeIf(c -> !Config.MODS_ENABLED.getOrAdd(c.getSimpleName(), true));
+        Config.save();
     }
 
     /**
@@ -411,9 +334,9 @@ public class InfernalMobsCore implements ModInitializer {
      * @param entity Entity in question, already asserted to be instanceof Enemy
      */
     public void processEntitySpawn(LivingEntity entity) {
-        if (!entity.level().isClientSide() && config != null) {
+        if (!entity.level().isClientSide() && Config.isLoaded()) {
             if (!getIsRareEntityOnline(entity) && !isBlockedBeingInfernal(entity)) {
-                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().getRandom().nextInt(config.getEliteRarity()) == 0)) {
+                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().getRandom().nextInt(Config.eliteRarity) == 0)) {
                     try {
                         /*
                             get server world from resource location:
@@ -424,7 +347,7 @@ public class InfernalMobsCore implements ModInitializer {
                         Identifier worldIdentifier = worldRegistryKey.identifier();
 
                         // Skip Infernal-Spawn when Dimension is Blacklisted, entries look like: "minecraft:overworld"
-                        if (!config.getDimensionIDBlackList().contains(worldIdentifier.toString())) {
+                        if (!Config.dimensionIDBlackList.contains(worldIdentifier.toString())) {
                             MobModifier mod = instance.createMobModifiers(entity);
                             if (mod != null) {
                                 SidedCache.getInfernalMobs(entity.level()).put(entity, mod);
@@ -465,62 +388,47 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     private boolean checkEntityClassAllowed(LivingEntity entity) {
-        String entName = config.isUseSimpleEntityClassNames() ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesAllowedMap.containsKey(entName)) {
             return classesAllowedMap.get(entName);
         }
 
-        boolean result = true;
-        if (!config.getPermittedentities().containsKey(entName)) {
-            config.getPermittedentities().put(entName, true);
-            TomlConfig.saveConfig(config, configFile);
-        } else {
-            result = config.getPermittedentities().get(entName);
-            classesAllowedMap.put(entName, result);
-        }
+        boolean result = Config.PERMITTED_ENTITIES.getOrAdd(entName, true);
+        Config.save();
+        classesAllowedMap.put(entName, result);
         return result;
     }
 
     private boolean checkEntityClassForced(LivingEntity entity) {
-        String entName = config.isUseSimpleEntityClassNames() ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesForcedMap.containsKey(entName)) {
             return classesForcedMap.get(entName);
         }
 
-        boolean result = false;
-        if (!config.getEntitiesalwaysinfernal().containsKey(entName)) {
-            config.getEntitiesalwaysinfernal().put(entName, false);
-            TomlConfig.saveConfig(config, configFile);
-        } else {
-            result = config.getEntitiesalwaysinfernal().get(entName);
-            classesForcedMap.put(entName, result);
-        }
+        boolean result = Config.ENTITIES_ALWAYS_INFERNAL.getOrAdd(entName, false);
+        Config.save();
+        classesForcedMap.put(entName, result);
         return result;
     }
 
     public double getMobClassMaxHealth(LivingEntity entity) {
-        String entName = config.isUseSimpleEntityClassNames() ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
+        String entName = Config.useSimpleEntityClassNames ? entity.getClass().getSimpleName() : getEntityNameSafe(entity);
         if (classesHealthMap.containsKey(entName)) {
             return classesHealthMap.get(entName);
         }
 
-        double result = entity.getMaxHealth();
-        if (!config.getEntitybasehealth().containsKey(entName)) {
-            config.getEntitybasehealth().put(entName, (double) entity.getMaxHealth());
-            TomlConfig.saveConfig(config, configFile);
-        } else {
-            result = config.getEntitybasehealth().get(entName);
-            classesHealthMap.put(entName, result);
-        }
+        double result = Config.ENTITY_BASE_HEALTH.getOrAdd(entName, (double) entity.getMaxHealth());
+        Config.save();
+        classesHealthMap.put(entName, result);
         return result;
     }
 
     public boolean healthChangesDisabled() {
-        return config.isHealthChangesDisabled();
+        return Config.healthChangesDisabled;
     }
 
     public double getModCooldownFactor() {
-        return config.getModCooldownFactor();
+        return Config.modCooldownFactor;
     }
 
     /**
@@ -548,11 +456,11 @@ public class InfernalMobsCore implements ModInitializer {
         /* lets just be lazy and scratch mods off a list copy */
         ArrayList<Class<? extends MobModifier>> possibleMods = Lists.newArrayList(mobMods);
 
-        if (entity.level().getRandom().nextInt(config.getUltraRarity()) == 0) // ultra mobs
+        if (entity.level().getRandom().nextInt(Config.ultraRarity) == 0) // ultra mobs
         {
             number += 3 + entity.level().getRandom().nextInt(2);
 
-            if (entity.level().getRandom().nextInt(config.getInfernoRarity()) == 0) // infernal
+            if (entity.level().getRandom().nextInt(Config.infernoRarity) == 0) // infernal
             // mobs
             {
                 number += 3 + entity.level().getRandom().nextInt(2);
@@ -860,15 +768,15 @@ public class InfernalMobsCore implements ModInitializer {
     }
 
     public boolean getIsHealthBarDisabled() {
-        return config.isDisableHealthBar();
+        return Config.disableHealthBar;
     }
 
     public double getMobModHealthFactor() {
-        return config.getModHealthFactor();
+        return Config.modHealthFactor;
     }
 
     public float getLimitedDamage(float test) {
-        return (float) Math.min(test, config.getMaxDamage());
+        return (float) Math.min(test, Config.maxDamage);
     }
 
     public boolean getIsEntityAllowedTarget(Entity entity) {
