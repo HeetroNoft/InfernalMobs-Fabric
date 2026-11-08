@@ -1,5 +1,6 @@
 package atomicstryker.infernalmobs.client;
 
+import atomicstryker.infernalmobs.common.Config;
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
 import atomicstryker.infernalmobs.common.SidedCache;
@@ -9,6 +10,7 @@ import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.KnockBackPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import atomicstryker.infernalmobs.common.network.VelocityPacket;
+import me.shedaniel.autoconfig.AutoConfigClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
@@ -48,6 +50,10 @@ public class InfernalMobsClient implements ClientModInitializer {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossbar"), new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_choking"), new OverlayChoking.InfernalMobsChokingGuiOverlay());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossglow"), new RendererBossGlow.InfernalMobsBossGlowOverlay());
+
+        // the loot lists get item suggestions in the config screen
+        AutoConfigClient.getGuiRegistry(Config.class).registerPredicateProvider(new LootListGuiProvider(),
+                field -> field.getName().startsWith("droppedItemIDs"));
     }
 
     private void onEntityJoinedWorld(Entity entity) {

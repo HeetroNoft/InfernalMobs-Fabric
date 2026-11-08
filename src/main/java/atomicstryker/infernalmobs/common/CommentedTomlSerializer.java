@@ -7,6 +7,7 @@ import com.electronwill.nightconfig.core.io.WritingMode;
 import com.electronwill.nightconfig.toml.TomlFormat;
 import me.shedaniel.autoconfig.ConfigData;
 import me.shedaniel.autoconfig.annotation.Config;
+import me.shedaniel.autoconfig.annotation.ConfigEntry;
 import me.shedaniel.autoconfig.serializer.ConfigSerializer;
 import me.shedaniel.autoconfig.util.Utils;
 import me.shedaniel.cloth.clothconfig.shadowed.blue.endless.jankson.Comment;
@@ -30,7 +31,7 @@ import java.util.TreeMap;
  * AutoConfig serializer writing a TOML file in the Forge/NeoForge layout: every value is preceded by its
  * {@link Comment} and its default. AutoConfig's own Toml4jConfigSerializer writes TOML without any comment.
  * Supports the field types used by {@link atomicstryker.infernalmobs.common.Config}: booleans, numbers,
- * strings, lists of strings and maps of strings to booleans or numbers.
+ * strings, lists of strings, maps of strings to booleans or numbers, and CollapsibleObject sections of these.
  */
 public class CommentedTomlSerializer<T extends ConfigData> implements ConfigSerializer<T> {
 
@@ -50,16 +51,7 @@ public class CommentedTomlSerializer<T extends ConfigData> implements ConfigSeri
 
     @Override
     public void serialize(T config) throws SerializationException {
-        T defaults = createDefault();
-        CommentedConfig toml = TomlFormat.newConfig(LinkedHashMap::new);
-        for (Field field : getFields()) {
-            // put into the value map directly, set() would split keys containing dots into sub tables
-            toml.valueMap().put(field.getName(), toToml(Utils.getUnsafely(field, config)));
-            String comment = buildComment(field, Utils.getUnsafely(field, defaults));
-            if (comment != null) {
-                toml.setComment(List.of(field.getName()), comment);
-            }
-        }
+        CommentedConfig toml = toTable(config, createDefault());
         try {
             Files.createDirectories(getConfigPath().getParent());
             TomlFormat.instance().createWriter().write(toml, getConfigPath(), WritingMode.REPLACE);
@@ -81,20 +73,8 @@ public class CommentedTomlSerializer<T extends ConfigData> implements ConfigSeri
             throw new SerializationException(e);
         }
 
-        // values missing from the file or of the wrong type keep their default
         T config = createDefault();
-        for (Field field : getFields()) {
-            Object value = toml.valueMap().get(field.getName());
-            if (value == null) {
-                continue;
-            }
-            Object converted = fromToml(field, value);
-            if (converted == null) {
-                LOGGER.warn("Config value {} = {} in {} is invalid, using the default", field.getName(), value, path.getFileName());
-            } else {
-                Utils.setUnsafely(field, config, converted);
-            }
-        }
+        fromTable(toml, config, path);
         return config;
     }
 
@@ -103,9 +83,57 @@ public class CommentedTomlSerializer<T extends ConfigData> implements ConfigSeri
         return Utils.constructUnsafely(configClass);
     }
 
-    private List<Field> getFields() {
+    /**
+     * Fields marked as CollapsibleObject are written as a sub table with their own comments
+     */
+    private static CommentedConfig toTable(Object object, Object defaults) {
+        CommentedConfig toml = TomlFormat.newConfig(LinkedHashMap::new);
+        for (Field field : getFields(object.getClass())) {
+            Object value = Utils.getUnsafely(field, object);
+            Object defaultValue = Utils.getUnsafely(field, defaults);
+            // put into the value map directly, set() would split keys containing dots into sub tables
+            toml.valueMap().put(field.getName(), isSection(field) ? toTable(value, defaultValue) : toToml(value));
+            String comment = buildComment(field, defaultValue);
+            if (comment != null) {
+                toml.setComment(List.of(field.getName()), comment);
+            }
+        }
+        return toml;
+    }
+
+    /**
+     * values missing from the file or of the wrong type keep their default
+     */
+    private static void fromTable(UnmodifiableConfig toml, Object object, Path path) {
+        for (Field field : getFields(object.getClass())) {
+            Object value = toml.valueMap().get(field.getName());
+            if (value == null) {
+                continue;
+            }
+            if (isSection(field)) {
+                if (value instanceof UnmodifiableConfig table) {
+                    fromTable(table, Utils.getUnsafely(field, object), path);
+                } else {
+                    LOGGER.warn("Config section {} in {} is not a table, using the defaults", field.getName(), path.getFileName());
+                }
+                continue;
+            }
+            Object converted = fromToml(field, value);
+            if (converted == null) {
+                LOGGER.warn("Config value {} = {} in {} is invalid, using the default", field.getName(), value, path.getFileName());
+            } else {
+                Utils.setUnsafely(field, object, converted);
+            }
+        }
+    }
+
+    private static boolean isSection(Field field) {
+        return field.isAnnotationPresent(ConfigEntry.Gui.CollapsibleObject.class);
+    }
+
+    private static List<Field> getFields(Class<?> type) {
         List<Field> fields = new ArrayList<>();
-        for (Field field : configClass.getDeclaredFields()) {
+        for (Field field : type.getDeclaredFields()) {
             if (!Modifier.isStatic(field.getModifiers()) && !Modifier.isTransient(field.getModifiers())) {
                 fields.add(field);
             }

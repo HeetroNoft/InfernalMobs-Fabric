@@ -117,6 +117,11 @@ public class Config implements ConfigData {
     @ConfigEntry.Gui.Tooltip
     public List<String> entityTagBlackList = new ArrayList<>();
 
+    @Comment("Settings of the colored outline drawn around infernal mobs, only used on the client.\n" +
+            "Rare mobs are outlined in green, Ultra mobs in yellow and Infernal mobs in red.")
+    @ConfigEntry.Gui.CollapsibleObject
+    public Outline outline = new Outline();
+
     // the tables below are filled in at runtime, the config screen has no editor for maps so they are only in the file
 
     @Comment("Determines which modifiers are enabled.")
@@ -137,6 +142,34 @@ public class Config implements ConfigData {
             "Every mob is added here with its vanilla max health the first time it spawns.")
     @ConfigEntry.Gui.Excluded
     public Map<String, Double> entitybasehealth = new LinkedHashMap<>();
+
+    public static class Outline {
+
+        @Comment("Determines whether infernal mobs get a colored outline.")
+        @ConfigEntry.Gui.Tooltip
+        public boolean enabled = true;
+
+        @Comment("Determines whether the outline is visible through blocks, like the Glowing effect.\n" +
+                "When false, the outline is only drawn while the mob is in your line of sight.")
+        @ConfigEntry.Gui.Tooltip
+        public boolean throughWalls = true;
+
+        @Comment("Defines the distance in blocks beyond which the outline is not drawn.\n Range: > 0")
+        @ConfigEntry.Gui.Tooltip
+        public int maxDistance = 32;
+
+        @Comment("Determines whether Rare mobs get the outline.")
+        @ConfigEntry.Gui.Tooltip
+        public boolean rare = true;
+
+        @Comment("Determines whether Ultra mobs get the outline.")
+        @ConfigEntry.Gui.Tooltip
+        public boolean ultra = true;
+
+        @Comment("Determines whether Infernal mobs get the outline.")
+        @ConfigEntry.Gui.Tooltip
+        public boolean infernal = true;
+    }
 
     private static ConfigHolder<Config> holder;
 
@@ -170,6 +203,7 @@ public class Config implements ConfigData {
         modHealthFactor = checkRange("modHealthFactor", modHealthFactor, 0, defaults.modHealthFactor);
         modCooldownFactor = checkRange("modCooldownFactor", modCooldownFactor, 0, defaults.modCooldownFactor);
         maxDamage = checkRange("maxDamage", maxDamage, 0, defaults.maxDamage);
+        outline.maxDistance = (int) checkRange("outline.maxDistance", outline.maxDistance, 1, defaults.outline.maxDistance);
     }
 
     private static double checkRange(String name, double value, double min, double defaultValue) {
