@@ -18,8 +18,8 @@ public abstract class LevelExtractorMixin {
      * Entities in chunk sections hidden by the occlusion culling are not rendered at all, so their outline
      * disappears. Outlined infernal mobs skip that check when their outline is visible through walls.
      */
-    @WrapOperation(method = "isEntityVisible", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;isSectionCompiledAndVisible(Lnet/minecraft/core/BlockPos;)Z"))
-    private boolean infernalmobs$keepOutlinedMobs(LevelRenderer levelRenderer, BlockPos pos, Operation<Boolean> original, @Local(argsOnly = true) Entity entity) {
-        return original.call(levelRenderer, pos) || RendererOutline.isOutlinedThroughWalls(entity);
+    @WrapOperation(method = "isEntityVisible", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/LevelRenderer;isSectionCompiledAndVisible(Lnet/minecraft/core/BlockPos;J)Z"))
+    private boolean infernalmobs$keepOutlinedMobs(LevelRenderer levelRenderer, BlockPos pos, long frame, Operation<Boolean> original, @Local(argsOnly = true) Entity entity) {
+        return original.call(levelRenderer, pos, frame) || RendererOutline.isOutlinedThroughWalls(entity);
     }
 }

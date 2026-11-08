@@ -1,13 +1,10 @@
 package atomicstryker.infernalmobs.common;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.Vec3;
 
@@ -65,32 +62,20 @@ public abstract class AbstractTeleporter extends MobModifier {
     }
 
     protected boolean tryTeleportTo(LivingEntity mob, double x, double y, double z) {
-        BlockPos.MutableBlockPos destination = new BlockPos.MutableBlockPos(x, y, z);
-
-        while (destination.getY() > mob.level().getMinY() && !mob.level().getBlockState(destination).blocksMotion()) {
-            destination.move(Direction.DOWN);
-        }
-
-        BlockState destinationFloorState = mob.level().getBlockState(destination);
-        boolean blocksMotion = destinationFloorState.blocksMotion();
-        boolean isWater = destinationFloorState.getFluidState().is(FluidTags.WATER);
-        if (blocksMotion && !isWater) {
-            Vec3 target = fireTeleportEvent(mob, x, y, z);
-            if (target == null) {
-                return false;
-            }
-            Vec3 vec3 = mob.position();
-            boolean teleportResult = mob.randomTeleport(target.x, target.y, target.z, true);
-            if (teleportResult) {
-                mob.level().gameEvent(GameEvent.TELEPORT, vec3, GameEvent.Context.of(mob));
-                if (!mob.isSilent()) {
-                    playDestinationEffects(mob);
-                }
-            }
-            return teleportResult;
-        } else {
+        Vec3 target = fireTeleportEvent(mob, x, y, z);
+        if (target == null) {
             return false;
         }
+        // since 26.3 randomTeleport finds the floor itself and rejects liquids and the blocks of the tag
+        Vec3 start = mob.position();
+        boolean success = mob.randomTeleport(target.x, target.y, target.z, true, BlockTags.ENDERMAN_DOES_NOT_TELEPORT_TO);
+        if (success) {
+            mob.level().gameEvent(GameEvent.TELEPORT, start, GameEvent.Context.of(mob));
+            if (!mob.isSilent()) {
+                playDestinationEffects(mob);
+            }
+        }
+        return success;
     }
 
     protected void playStartEffects(LivingEntity mob, double x, double y, double z) {

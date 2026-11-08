@@ -21,7 +21,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.Comparator;
 import java.util.List;
@@ -361,13 +360,13 @@ public class LootStackEntry extends TooltipListEntry<String> {
     @Override
     public boolean keyPressed(KeyEvent event) {
         if (isPopupOpen()) {
-            if (event.key() == GLFW.GLFW_KEY_DOWN || event.key() == GLFW.GLFW_KEY_UP) {
-                highlighted = Math.clamp(highlighted + (event.key() == GLFW.GLFW_KEY_DOWN ? 1 : -1), 0, matches.size() - 1);
+            if (event.isDown() || event.isUp()) {
+                highlighted = Math.clamp(highlighted + (event.isDown() ? 1 : -1), 0, matches.size() - 1);
                 // keep the highlighted suggestion in view
                 scroll = Math.clamp(scroll, highlighted - shownSuggestions() + 1, highlighted);
                 return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER || event.key() == GLFW.GLFW_KEY_TAB) {
+            if (event.isConfirmation() || event.isCycleFocus()) {
                 select(matches.get(highlighted));
                 return true;
             }
