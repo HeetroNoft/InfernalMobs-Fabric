@@ -17,10 +17,10 @@ public final class InfernalMobsData {
      * saved modifier string, or the non infernal marker
      */
     private static final AttachmentType<String> MODIFIERS = AttachmentRegistry.createPersistent(
-            ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "modifiers"), Codec.STRING);
+            new ResourceLocation(InfernalMobsCore.MOD_ID, "modifiers"), Codec.STRING);
 
     private static final AttachmentType<Float> MAX_HEALTH = AttachmentRegistry.createPersistent(
-            ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "max_health"), Codec.FLOAT);
+            new ResourceLocation(InfernalMobsCore.MOD_ID, "max_health"), Codec.FLOAT);
 
     private InfernalMobsData() {
     }

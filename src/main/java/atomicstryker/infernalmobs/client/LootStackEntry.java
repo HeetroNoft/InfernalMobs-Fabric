@@ -15,6 +15,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -100,9 +101,10 @@ public class LootStackEntry extends TooltipListEntry<String> {
         try {
             CompoundTag tag = TagParser.parseTag(value);
             id = tag.getString("id");
-            count = String.valueOf(tag.contains("count") ? tag.getInt("count") : 1);
+            count = String.valueOf(tag.contains("count") ? tag.getInt("count") : tag.contains("Count") ? tag.getByte("Count") : 1);
             tag.remove("id");
             tag.remove("count");
+            tag.remove("Count");
             extras = tag.isEmpty() ? "" : tag.toString();
         } catch (CommandSyntaxException e) {
             // keep the broken text visible so it can be fixed
@@ -138,7 +140,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
         field.setMaxLength(Integer.MAX_VALUE);
         field.setValue(text);
         // setValue leaves the cursor and the selection start at the end, this clears the selection too
-        field.moveCursorToStart(false);
+        field.moveCursorToStart();
         field.setHint(Component.translatable("text.autoconfig.InfernalMobs-common.loot." + hint));
         return field;
     }
@@ -169,7 +171,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
 
     private void select(ItemChoice choice) {
         itemField.setValue(choice.name());
-        itemField.moveCursorToStart(false);
+        itemField.moveCursorToStart();
         // set after setValue, its responder looks the item up by name and two items can share one
         selected = choice;
         showSuggestions = false;
@@ -348,21 +350,21 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
         if (isOverPopup(mouseX, mouseY)) {
-            scroll = Math.clamp(scroll - (int) Math.signum(scrollY), 0, matches.size() - shownSuggestions());
+            scroll = Mth.clamp(scroll - (int) Math.signum(scrollY), 0, matches.size() - shownSuggestions());
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (isPopupOpen()) {
             if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_UP) {
-                highlighted = Math.clamp(highlighted + (keyCode == GLFW.GLFW_KEY_DOWN ? 1 : -1), 0, matches.size() - 1);
+                highlighted = Mth.clamp(highlighted + (keyCode == GLFW.GLFW_KEY_DOWN ? 1 : -1), 0, matches.size() - 1);
                 // keep the highlighted suggestion in view
-                scroll = Math.clamp(scroll, highlighted - shownSuggestions() + 1, highlighted);
+                scroll = Mth.clamp(scroll, highlighted - shownSuggestions() + 1, highlighted);
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_TAB) {

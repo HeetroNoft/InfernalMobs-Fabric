@@ -1,28 +1,28 @@
 package atomicstryker.infernalmobs.common.network;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
-public record MobModsPacket(String stringData, int entID, byte sentFromServer) implements CustomPacketPayload {
+public record MobModsPacket(String stringData, int entID, byte sentFromServer) implements FabricPacket {
 
-    public static final Type<MobModsPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "mobmods"));
+    public static final PacketType<MobModsPacket> TYPE = PacketType.create(new ResourceLocation(InfernalMobsCore.MOD_ID, "mobmods"), MobModsPacket::read);
 
-    public static final StreamCodec<ByteBuf, MobModsPacket> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.STRING_UTF8,
-            MobModsPacket::stringData,
-            ByteBufCodecs.INT,
-            MobModsPacket::entID,
-            ByteBufCodecs.BYTE,
-            MobModsPacket::sentFromServer,
-            MobModsPacket::new
-    );
+    private static MobModsPacket read(FriendlyByteBuf buf) {
+        return new MobModsPacket(buf.readUtf(), buf.readInt(), buf.readByte());
+    }
 
     @Override
-    public Type<MobModsPacket> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeUtf(stringData);
+        buf.writeInt(entID);
+        buf.writeByte(sentFromServer);
+    }
+
+    @Override
+    public PacketType<MobModsPacket> getType() {
         return TYPE;
     }
 }

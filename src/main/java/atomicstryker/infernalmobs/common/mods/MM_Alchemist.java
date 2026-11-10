@@ -2,7 +2,6 @@ package atomicstryker.infernalmobs.common.mods;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
-import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
@@ -12,7 +11,7 @@ import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.phys.Vec3;
 
@@ -61,7 +60,7 @@ public class MM_Alchemist extends MobModifier {
             float diffZ = (float) (target.getZ() + target.getDeltaMovement().z - mob.getZ());
             float distance = Mth.sqrt(diffX * diffX + diffZ * diffZ);
 
-            Holder<Potion> potiontype = Potions.HARMING;
+            Potion potiontype = Potions.HARMING;
 
             if (distance >= 8.0F && !target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                 potiontype = Potions.SLOWNESS;
@@ -77,7 +76,7 @@ public class MM_Alchemist extends MobModifier {
                 double yDistance = target.getEyeY() - 1.1F - mob.getY();
                 double zDistance = target.getZ() + vec3.z - mob.getZ();
                 double absDistance = Math.sqrt(xDistance * xDistance + zDistance * zDistance);
-                ItemStack itemstack = PotionContents.createItemStack(Items.SPLASH_POTION, potiontype);
+                ItemStack itemstack = PotionUtils.setPotion(new ItemStack(Items.SPLASH_POTION), potiontype);
                 ThrownPotion potion = new ThrownPotion(serverLevel, mob);
                 potion.setItem(itemstack);
                 potion.setXRot(potion.getXRot() + 20.0F);

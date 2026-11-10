@@ -1,7 +1,6 @@
 package atomicstryker.infernalmobs.mixin;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -38,7 +37,7 @@ public abstract class LivingEntityMixin {
     }
 
     @Inject(method = "dropAllDeathLoot", at = @At("TAIL"))
-    private void infernalmobs$onDrops(ServerLevel level, DamageSource source, CallbackInfo ci) {
+    private void infernalmobs$onDrops(DamageSource source, CallbackInfo ci) {
         InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingDrops((LivingEntity) (Object) this, source, lastHurtByPlayerTime > 0);
     }
 

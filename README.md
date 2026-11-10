@@ -2,7 +2,7 @@
 
 Fabric port of AtomicStryker's Infernal Mobs: hostile mobs randomly spawn with Diablo-style modifiers and drop loot rewards when defeated.
 
-- Minecraft 1.21.1
+- Minecraft 1.20.1
 - Fabric Loader 0.20.1+
 - Fabric API (required)
 - Cloth Config (required)
@@ -12,7 +12,7 @@ If you want to use this mod in modpacks, see the license at the bottom of <https
 
 ## Building
 
-Loom requires Gradle itself to run on Java 25. Point `JAVA_HOME` to a Java 25 JDK, then (the mod itself is compiled for Java 21):
+Loom requires Gradle itself to run on Java 25. Point `JAVA_HOME` to a Java 25 JDK, then (the mod itself is compiled for Java 17):
 
 ```sh
 ./gradlew build

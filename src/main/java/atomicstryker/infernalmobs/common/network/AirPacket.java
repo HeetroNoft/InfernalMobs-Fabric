@@ -1,25 +1,26 @@
 package atomicstryker.infernalmobs.common.network;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
+public record AirPacket(int air) implements FabricPacket {
 
-public record AirPacket(int air) implements CustomPacketPayload {
+    public static final PacketType<AirPacket> TYPE = PacketType.create(new ResourceLocation(InfernalMobsCore.MOD_ID, "airchoke"), AirPacket::read);
 
-    public static final Type<AirPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "airchoke"));
-
-    public static final StreamCodec<ByteBuf, AirPacket> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.INT,
-            AirPacket::air,
-            AirPacket::new
-    );
+    private static AirPacket read(FriendlyByteBuf buf) {
+        return new AirPacket(buf.readInt());
+    }
 
     @Override
-    public Type<AirPacket> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeInt(air);
+    }
+
+    @Override
+    public PacketType<AirPacket> getType() {
         return TYPE;
     }
 }

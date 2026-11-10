@@ -44,7 +44,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
@@ -54,12 +54,10 @@ import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
@@ -146,21 +144,12 @@ public class InfernalMobsCore implements ModInitializer {
     private void registerNetworkingServer() {
         // packets are non-mandatory, every send checks canSend first
         // so clients having the mod can still connect to servers which dont have it
-        PayloadTypeRegistry.playC2S().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
-        PayloadTypeRegistry.playS2C().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
-        PayloadTypeRegistry.playC2S().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
-        PayloadTypeRegistry.playS2C().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
-
-        PayloadTypeRegistry.playS2C().register(AirPacket.TYPE, AirPacket.STREAM_CODEC);
-        PayloadTypeRegistry.playS2C().register(VelocityPacket.TYPE, VelocityPacket.STREAM_CODEC);
-        PayloadTypeRegistry.playS2C().register(KnockBackPacket.TYPE, KnockBackPacket.STREAM_CODEC);
-
-        ServerPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, this::onHealthPacket);
-        ServerPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, this::onMobModsPacket);
+        ServerPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, (packet, player, responseSender) -> onHealthPacket(packet, player.server));
+        ServerPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, (packet, player, responseSender) -> onMobModsPacket(packet, player.server));
     }
 
-    private void onMobModsPacket(MobModsPacket mobModsPacket, ServerPlayNetworking.Context context) {
-        ServerPlayer p = context.server().getPlayerList().getPlayerByName(mobModsPacket.stringData());
+    private void onMobModsPacket(MobModsPacket mobModsPacket, MinecraftServer server) {
+        ServerPlayer p = server.getPlayerList().getPlayerByName(mobModsPacket.stringData());
         InfernalMobsCore.LOGGER.trace("player {} from string {} querying server for mods of entity id {}", p, mobModsPacket.stringData(), mobModsPacket.entID());
         if (p != null) {
             Entity ent = p.level().getEntity(mobModsPacket.entID());
@@ -178,8 +167,8 @@ public class InfernalMobsCore implements ModInitializer {
         }
     }
 
-    private void onHealthPacket(HealthPacket healthPacket, ServerPlayNetworking.Context context) {
-        ServerPlayer p = context.server().getPlayerList().getPlayerByName(healthPacket.stringData());
+    private void onHealthPacket(HealthPacket healthPacket, MinecraftServer server) {
+        ServerPlayer p = server.getPlayerList().getPlayerByName(healthPacket.stringData());
         if (p != null) {
             Entity ent = p.level().getEntity(healthPacket.entID());
             if (ent instanceof LivingEntity e) {
@@ -663,10 +652,7 @@ public class InfernalMobsCore implements ModInitializer {
     private void enchantRandomly(Level level, ItemStack itemStack, int itemEnchantability, int modStr) {
         int remainStr = (modStr + 1) / 2; // should result in 1-3
 
-        Optional<HolderSet.Named<Enchantment>> optional = level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getTag(EnchantmentTags.ON_RANDOM_LOOT);
-        Stream<Holder<Enchantment>> holderStream = optional.map(HolderSet::stream)
-                .orElseGet(() -> level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).holders().map(ref -> ref));
-        List<?> enchantments = EnchantmentHelper.selectEnchantment(level.getRandom(), itemStack, itemEnchantability, holderStream);
+        List<?> enchantments = EnchantmentHelper.selectEnchantment(level.getRandom(), itemStack, itemEnchantability, false);
 
         Iterator<?> iter = enchantments.iterator();
         while (iter.hasNext() && remainStr > 0) {
@@ -721,8 +707,8 @@ public class InfernalMobsCore implements ModInitializer {
         }
     }
 
-    private static void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
-        if (ServerPlayNetworking.canSend(player, payload.type())) {
+    private static void sendToPlayer(ServerPlayer player, FabricPacket payload) {
+        if (ServerPlayNetworking.canSend(player, payload.getType())) {
             ServerPlayNetworking.send(player, payload);
         }
     }

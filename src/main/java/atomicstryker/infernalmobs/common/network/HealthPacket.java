@@ -1,30 +1,29 @@
 package atomicstryker.infernalmobs.common.network;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
+import net.fabricmc.fabric.api.networking.v1.PacketType;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
-public record HealthPacket(String stringData, int entID, float health, float maxhealth) implements CustomPacketPayload {
+public record HealthPacket(String stringData, int entID, float health, float maxhealth) implements FabricPacket {
 
-    public static final Type<HealthPacket> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "health"));
+    public static final PacketType<HealthPacket> TYPE = PacketType.create(new ResourceLocation(InfernalMobsCore.MOD_ID, "health"), HealthPacket::read);
 
-    public static final StreamCodec<ByteBuf, HealthPacket> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.STRING_UTF8,
-            HealthPacket::stringData,
-            ByteBufCodecs.INT,
-            HealthPacket::entID,
-            ByteBufCodecs.FLOAT,
-            HealthPacket::health,
-            ByteBufCodecs.FLOAT,
-            HealthPacket::maxhealth,
-            HealthPacket::new
-    );
+    private static HealthPacket read(FriendlyByteBuf buf) {
+        return new HealthPacket(buf.readUtf(), buf.readInt(), buf.readFloat(), buf.readFloat());
+    }
 
     @Override
-    public Type<HealthPacket> type() {
+    public void write(FriendlyByteBuf buf) {
+        buf.writeUtf(stringData);
+        buf.writeInt(entID);
+        buf.writeFloat(health);
+        buf.writeFloat(maxhealth);
+    }
+
+    @Override
+    public PacketType<HealthPacket> getType() {
         return TYPE;
     }
 }

@@ -1,6 +1,7 @@
 package atomicstryker.infernalmobs.common.mods;
 
 import atomicstryker.infernalmobs.common.MobModifier;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -31,7 +32,7 @@ public class MM_Rust extends MobModifier {
                 && (source.getDirectEntity() instanceof Player p)
                 && wantsToAttack(mob, p)) {
             ItemStack equippedStack = p.getItemBySlot(EquipmentSlot.MAINHAND);
-            equippedStack.hurtAndBreak(4, (LivingEntity) source.getDirectEntity(), EquipmentSlot.MAINHAND);
+            equippedStack.hurtAndBreak(4, (LivingEntity) source.getDirectEntity(), attacker -> attacker.broadcastBreakEvent(EquipmentSlot.MAINHAND));
         }
 
         return super.onHurt(mob, source, damage);
@@ -50,8 +51,8 @@ public class MM_Rust extends MobModifier {
             int i = (int) Math.max(1.0F, pDamageAmount / 4.0F);
             for (EquipmentSlot equipmentSlot : new EquipmentSlot[]{EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD}) {
                 ItemStack itemstack = player.getItemBySlot(equipmentSlot);
-                if (itemstack.canBeHurtBy(damageSource)) {
-                    itemstack.hurtAndBreak(i, player, equipmentSlot);
+                if (!(damageSource.is(DamageTypeTags.IS_FIRE) && itemstack.getItem().isFireResistant())) {
+                    itemstack.hurtAndBreak(i, player, owner -> owner.broadcastBreakEvent(equipmentSlot));
                     break;
                 }
             }

@@ -13,13 +13,13 @@ import atomicstryker.infernalmobs.common.network.VelocityPacket;
 import me.shedaniel.autoconfig.AutoConfig;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -28,21 +28,28 @@ import net.minecraft.world.entity.monster.Enemy;
 public class InfernalMobsClient implements ClientModInitializer {
 
     private static Minecraft mc;
+    private static ClientLevel lastLevel;
 
     @Override
     public void onInitializeClient() {
         mc = Minecraft.getInstance();
 
-        ClientPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, (packet, context) -> onHealthPacket(packet.entID(), packet.health(), packet.maxhealth()));
-        ClientPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, (packet, context) -> onMobModsPacketToClient(packet));
-        ClientPlayNetworking.registerGlobalReceiver(AirPacket.TYPE, (packet, context) -> OverlayChoking.handleAirPacket(packet));
-        ClientPlayNetworking.registerGlobalReceiver(VelocityPacket.TYPE, (packet, context) -> mc.player.push(packet.xv(), packet.yv(), packet.zv()));
-        ClientPlayNetworking.registerGlobalReceiver(KnockBackPacket.TYPE, (packet, context) -> MM_Gravity.knockBack(mc.player, packet.xv(), packet.zv()));
+        ClientPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, (packet, player, responseSender) -> onHealthPacket(packet.entID(), packet.health(), packet.maxhealth()));
+        ClientPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, (packet, player, responseSender) -> onMobModsPacketToClient(packet));
+        ClientPlayNetworking.registerGlobalReceiver(AirPacket.TYPE, (packet, player, responseSender) -> OverlayChoking.handleAirPacket(packet));
+        ClientPlayNetworking.registerGlobalReceiver(VelocityPacket.TYPE, (packet, player, responseSender) -> mc.player.push(packet.xv(), packet.yv(), packet.zv()));
+        ClientPlayNetworking.registerGlobalReceiver(KnockBackPacket.TYPE, (packet, player, responseSender) -> MM_Gravity.knockBack(mc.player, packet.xv(), packet.zv()));
 
         // client starting point, also local servers
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> InfernalMobsCore.instance().initIfNeeded(handler.getLevel()));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SidedCache.getInfernalMobs(handler.getLevel()).clear());
-        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, level) -> InfernalMobsCore.clearAllElitesOfLevel(level));
+        // Fabric API for 1.20.1 has no client world change event, the level instance changes on every dimension change
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.level != null && client.level != lastLevel) {
+                InfernalMobsCore.clearAllElitesOfLevel(client.level);
+            }
+            lastLevel = client.level;
+        });
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> onEntityJoinedWorld(entity));
         ClientTickEvents.END_WORLD_TICK.register(level -> InfernalMobsCore.instance().onTick(level));
 
@@ -80,8 +87,8 @@ public class InfernalMobsClient implements ClientModInitializer {
     /**
      * packets are optional, only send them if the server has Infernal Mobs installed
      */
-    public static void sendToServer(CustomPacketPayload payload) {
-        if (ClientPlayNetworking.canSend(payload.type())) {
+    public static void sendToServer(FabricPacket payload) {
+        if (ClientPlayNetworking.canSend(payload.getType())) {
             ClientPlayNetworking.send(payload);
         }
     }

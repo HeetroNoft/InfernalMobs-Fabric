@@ -5,7 +5,6 @@ import atomicstryker.infernalmobs.common.MobModifier;
 import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -43,12 +42,12 @@ public class OverlayBossBar {
 
     public static class InfernalMobsHealthBarGuiOverlay implements HudRenderCallback {
         @Override
-        public void onHudRender(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
+        public void onHudRender(@NotNull GuiGraphics guiGraphics, float partialTick) {
             if (InfernalMobsCore.instance().getIsHealthBarDisabled() || mc.gui.getBossOverlay().shouldPlayMusic()) {
                 return;
             }
 
-            LivingEntity ent = getEntityCrosshairOver(partialTick.getRealtimeDeltaTicks(), mc);
+            LivingEntity ent = getEntityCrosshairOver(partialTick, mc);
             boolean retained = false;
 
             if (ent == null && System.currentTimeMillis() < healthBarRetainTime) {

@@ -4,7 +4,6 @@ import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
 import atomicstryker.infernalmobs.common.SidedCache;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.particles.ParticleTypes;
@@ -21,7 +20,7 @@ public class RendererBossGlow {
 
     public static class InfernalMobsBossGlowOverlay implements HudRenderCallback {
         @Override
-        public void onHudRender(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
+        public void onHudRender(@NotNull GuiGraphics guiGraphics, float partialTick) {
             Minecraft mc = Minecraft.getInstance();
             Entity viewEnt = mc.getCameraEntity();
             if (mc.isPaused() || viewEnt == null) {
