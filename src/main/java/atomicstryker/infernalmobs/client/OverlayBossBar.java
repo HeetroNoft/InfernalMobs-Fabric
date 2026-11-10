@@ -45,7 +45,7 @@ public class OverlayBossBar {
     public static class InfernalMobsHealthBarGuiOverlay implements HudElement {
         @Override
         public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, DeltaTracker partialTick) {
-            if (InfernalMobsCore.instance().getIsHealthBarDisabled() || mc.gui.hud.getBossOverlay().shouldPlayMusic()) {
+            if (InfernalMobsCore.instance().getIsHealthBarDisabled() || mc.gui.getBossOverlay().shouldPlayMusic()) {
                 return;
             }
 
@@ -66,7 +66,7 @@ public class OverlayBossBar {
                     if (declaredField.getType() == Map.class) {
                         declaredField.setAccessible(true);
                         try {
-                            vanillaBossEventsMap = (LinkedHashMap<UUID, LerpingBossEvent>) declaredField.get(mc.gui.hud.getBossOverlay());
+                            vanillaBossEventsMap = (LinkedHashMap<UUID, LerpingBossEvent>) declaredField.get(mc.gui.getBossOverlay());
                             hackSuccess = true;
                         } catch (IllegalAccessException e) {
                             hackSuccess = false;

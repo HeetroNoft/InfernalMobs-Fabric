@@ -18,7 +18,7 @@ public abstract class LivingEntityMixin {
     @Shadow
     protected int lastHurtByPlayerMemoryTime;
 
-    @Inject(method = "knockback(DDDLnet/minecraft/world/damagesource/DamageSource;FZ)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "knockback(DDD)V", at = @At("HEAD"), cancellable = true)
     private void infernalmobs$onKnockback(CallbackInfo ci) {
         if (InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingKnockback((LivingEntity) (Object) this)) {
             ci.cancel();

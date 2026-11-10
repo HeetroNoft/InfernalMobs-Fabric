@@ -12,7 +12,7 @@
     "client.BaseListEntryMixin",
     "client.ElementEntryMixin",
     "client.EntityRendererMixin",
-    "client.LevelExtractorMixin"
+    "client.LevelRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

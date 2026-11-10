@@ -1,3 +1,7 @@
+1.1.0+mc26.1
+- ported to MC 26.1, 26.1.1 and 26.1.2 with Fabric API 0.145.1+26.1, Cloth Config 26.1.154 and Mod Menu 18.0.2
+- same features as 1.1.0+mc26.2
+
 1.1.0+mc26.2
 - versions now follow the MOD.VERSION+mcMINECRAFT scheme, 26.2.2FA is now 1.0.0+mc26.2 and 26.2.3FA is 1.1.0+mc26.2
 - default loot lists are edited in Mod Menu with an item picker, a count and optional SNBT, invalid entries are flagged
