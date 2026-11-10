@@ -1,4 +1,10 @@
-26.2.2FA
+1.1.0+mc26.2
+- versions now follow the MOD.VERSION+mcMINECRAFT scheme, 26.2.2FA is now 1.0.0+mc26.2 and 26.2.3FA is 1.1.0+mc26.2
+- default loot lists are edited in Mod Menu with an item picker, a count and optional SNBT, invalid entries are flagged
+- optional colored outline around infernal mobs (green Rare, yellow Ultra, red Infernal), with through-walls and max distance settings
+- config file comments updated for the new options
+
+1.0.0+mc26.2
 - ported from NeoForge to Fabric, Fabric API and Cloth Config are required
 - config moved to config/InfernalMobs-common.toml, every setting is commented with its description, default and range
 - config uses Cloth Config AutoConfig, it can be edited in game from Mod Menu
