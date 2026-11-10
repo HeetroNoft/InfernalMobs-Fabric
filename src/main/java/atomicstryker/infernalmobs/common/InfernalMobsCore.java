@@ -41,7 +41,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -131,8 +131,8 @@ public class InfernalMobsCore implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STARTED.register(this::commonSetup);
         CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> registerCommands(dispatcher));
-        ServerTickEvents.END_LEVEL_TICK.register(this::onTick);
-        ServerLevelEvents.UNLOAD.register((server, level) -> saveEventHandler.onWorldSave(level));
+        ServerTickEvents.END_WORLD_TICK.register(this::onTick);
+        ServerWorldEvents.UNLOAD.register((server, level) -> saveEventHandler.onWorldSave(level));
         ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> entityEventHandler.onEntityJoinedWorld(entity));
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !entityEventHandler.onEntityLivingDeath(entity));
 
@@ -146,14 +146,14 @@ public class InfernalMobsCore implements ModInitializer {
     private void registerNetworkingServer() {
         // packets are non-mandatory, every send checks canSend first
         // so clients having the mod can still connect to servers which dont have it
-        PayloadTypeRegistry.serverboundPlay().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(HealthPacket.TYPE, HealthPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playC2S().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(MobModsPacket.TYPE, MobModsPacket.STREAM_CODEC);
 
-        PayloadTypeRegistry.clientboundPlay().register(AirPacket.TYPE, AirPacket.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(VelocityPacket.TYPE, VelocityPacket.STREAM_CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(KnockBackPacket.TYPE, KnockBackPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(AirPacket.TYPE, AirPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(VelocityPacket.TYPE, VelocityPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(KnockBackPacket.TYPE, KnockBackPacket.STREAM_CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(HealthPacket.TYPE, this::onHealthPacket);
         ServerPlayNetworking.registerGlobalReceiver(MobModsPacket.TYPE, this::onMobModsPacket);
@@ -331,7 +331,7 @@ public class InfernalMobsCore implements ModInitializer {
     public void processEntitySpawn(LivingEntity entity) {
         if (!entity.level().isClientSide() && mobMods != null) {
             if (!getIsRareEntityOnline(entity) && !isBlockedBeingInfernal(entity)) {
-                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().getRandom().nextInt(Config.get().eliteRarity) == 0)) {
+                if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().random.nextInt(Config.get().eliteRarity) == 0)) {
                     try {
                         /*
                             get server world from resource location:
@@ -456,18 +456,18 @@ public class InfernalMobsCore implements ModInitializer {
      */
     private MobModifier createMobModifiers(LivingEntity entity) {
         /* 2-5 modifications standard */
-        int number = 2 + entity.level().getRandom().nextInt(3);
+        int number = 2 + entity.level().random.nextInt(3);
         /* lets just be lazy and scratch mods off a list copy */
         ArrayList<Class<? extends MobModifier>> possibleMods = Lists.newArrayList(mobMods);
 
-        if (entity.level().getRandom().nextInt(Config.get().ultraRarity) == 0) // ultra mobs
+        if (entity.level().random.nextInt(Config.get().ultraRarity) == 0) // ultra mobs
         {
-            number += 3 + entity.level().getRandom().nextInt(2);
+            number += 3 + entity.level().random.nextInt(2);
 
-            if (entity.level().getRandom().nextInt(Config.get().infernoRarity) == 0) // infernal
+            if (entity.level().random.nextInt(Config.get().infernoRarity) == 0) // infernal
             // mobs
             {
-                number += 3 + entity.level().getRandom().nextInt(2);
+                number += 3 + entity.level().random.nextInt(2);
             }
         }
 
@@ -476,7 +476,7 @@ public class InfernalMobsCore implements ModInitializer {
         // and have some
         {
             /* random index of mod list */
-            int index = entity.level().getRandom().nextInt(possibleMods.size());
+            int index = entity.level().random.nextInt(possibleMods.size());
             MobModifier nextMod = null;
 
             /*
@@ -683,7 +683,7 @@ public class InfernalMobsCore implements ModInitializer {
      */
     private ItemStack getRandomItem(LivingEntity mob, int prefix) {
         List<ItemStack> list = (prefix == 0) ? instance.lootItemDropsElite.getItemStackList() : (prefix == 1) ? instance.lootItemDropsUltra.getItemStackList() : instance.lootItemDropsInfernal.getItemStackList();
-        return !list.isEmpty() ? list.get(mob.level().getRandom().nextInt(list.size())).copy() : null;
+        return !list.isEmpty() ? list.get(mob.level().random.nextInt(list.size())).copy() : null;
     }
 
     public void sendVelocityPacket(ServerPlayer target, float xVel, float yVel, float zVel) {

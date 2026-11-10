@@ -5,7 +5,7 @@ import atomicstryker.infernalmobs.common.network.AirPacket;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.FluidTags;
@@ -31,7 +31,7 @@ public class OverlayChoking {
 
     public static class InfernalMobsChokingGuiOverlay implements HudElement {
         @Override
-        public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, DeltaTracker partialTick) {
+        public void render(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
             if (System.currentTimeMillis() > airDisplayTimeout) {
                 airOverrideValue = -999;
             }

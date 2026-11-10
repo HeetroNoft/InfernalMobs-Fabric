@@ -8,11 +8,10 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.gui.components.LerpingBossEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.ARGB;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -44,7 +43,7 @@ public class OverlayBossBar {
 
     public static class InfernalMobsHealthBarGuiOverlay implements HudElement {
         @Override
-        public void extractRenderState(@NotNull GuiGraphicsExtractor guiGraphics, DeltaTracker partialTick) {
+        public void render(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
             if (InfernalMobsCore.instance().getIsHealthBarDisabled() || mc.gui.getBossOverlay().shouldPlayMusic()) {
                 return;
             }
@@ -118,7 +117,7 @@ public class OverlayBossBar {
         }
     }
 
-    private static void drawModifiersUnderHealthBar(GuiGraphicsExtractor guiGraphics, MobModifier mod) {
+    private static void drawModifiersUnderHealthBar(GuiGraphics guiGraphics, MobModifier mod) {
         // RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         // RenderSystem.setShaderTexture(0, GUI_BARS_LOCATION);
 
@@ -130,7 +129,7 @@ public class OverlayBossBar {
         int i = 0;
         while (i < display.length && display[i] != null) {
             yCoord += 10;
-            guiGraphics.textWithBackdrop(mc.font, Component.literal(display[i]), screenwidth / 2 - fontR.width(display[i]) / 2, yCoord, -1, ARGB.white(255));
+            guiGraphics.drawString(mc.font, display[i], screenwidth / 2 - fontR.width(display[i]) / 2, yCoord, -1);
             i++;
         }
 

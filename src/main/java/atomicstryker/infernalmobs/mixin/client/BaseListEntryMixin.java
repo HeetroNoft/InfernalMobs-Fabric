@@ -2,7 +2,7 @@ package atomicstryker.infernalmobs.mixin.client;
 
 import me.shedaniel.clothconfig2.api.ReferenceProvider;
 import me.shedaniel.clothconfig2.gui.entries.BaseListEntry;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,7 +24,7 @@ public abstract class BaseListEntryMixin {
     @Shadow
     public abstract boolean isExpanded();
 
-    public void lateRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    public void lateRender(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         if (!isExpanded()) {
             return;
         }

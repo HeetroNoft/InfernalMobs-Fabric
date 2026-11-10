@@ -6,7 +6,7 @@ import me.shedaniel.clothconfig2.gui.entries.TooltipListEntry;
 import me.shedaniel.math.Point;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
@@ -62,7 +62,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
         }
 
         private static ItemChoice of(Item item) {
-            ItemStack stack = item.builtInRegistryHolder().areComponentsBound() ? new ItemStack(item) : null;
+            ItemStack stack = new ItemStack(item);
             String name = stack != null ? stack.getHoverName().getString() : Component.translatable(item.getDescriptionId()).getString();
             String id = BuiltInRegistries.ITEM.getKey(item).toString();
             return new ItemChoice(item, stack, name, id, (name + " " + id).toLowerCase(Locale.ROOT));
@@ -261,8 +261,8 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean isHovered, float delta) {
-        super.extractRenderState(graphics, index, y, x, entryWidth, entryHeight, mouseX, mouseY, isHovered, delta);
+    public void render(GuiGraphics graphics, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean isHovered, float delta) {
+        super.render(graphics, index, y, x, entryWidth, entryHeight, mouseX, mouseY, isHovered, delta);
         // same total width as the string list cells
         int width = entryWidth - 12;
         int textWidth = (width - ICON_WIDTH - COUNT_WIDTH - 2 * GAP) / 2;
@@ -271,7 +271,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
         int countX = x + width - COUNT_WIDTH;
 
         if (selected != null && selected.stack() != null) {
-            graphics.item(selected.stack(), x + 1, y + 2);
+            graphics.renderItem(selected.stack(), x + 1, y + 2);
         }
         layout(itemField, itemX, y + 2, textWidth);
         layout(extrasField, extrasX, y + 2, countX - GAP - extrasX);
@@ -281,7 +281,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
         countField.setTextColor(isValidCount() ? TEXT_COLOR : ERROR_COLOR);
         for (EditBox field : fields) {
             field.setEditable(isEditable());
-            field.extractRenderState(graphics, mouseX, mouseY, delta);
+            field.render(graphics, mouseX, mouseY, delta);
         }
 
         popupX = x;
@@ -296,7 +296,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     @Override
-    public void lateRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+    public void lateRender(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         if (!isPopupOpen()) {
             return;
         }
@@ -312,9 +312,9 @@ public class LootStackEntry extends TooltipListEntry<String> {
                 graphics.fill(popupX, rowY, popupX + popupWidth, rowY + SUGGESTION_HEIGHT, 0xFF404040);
             }
             if (choice.stack() != null) {
-                graphics.item(choice.stack(), popupX + 1, rowY + 1);
+                graphics.renderItem(choice.stack(), popupX + 1, rowY + 1);
             }
-            graphics.text(font, font.plainSubstrByWidth(choice.name(), popupWidth - ICON_WIDTH - 2), popupX + ICON_WIDTH, rowY + 5, 0xFFFFFFFF);
+            graphics.drawString(font, font.plainSubstrByWidth(choice.name(), popupWidth - ICON_WIDTH - 2), popupX + ICON_WIDTH, rowY + 5, 0xFFFFFFFF);
             if (hovered) {
                 addTooltip(Tooltip.of(new Point(mouseX, mouseY), Component.literal(choice.id())));
             }

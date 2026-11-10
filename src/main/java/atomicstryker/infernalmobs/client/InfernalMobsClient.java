@@ -13,7 +13,7 @@ import atomicstryker.infernalmobs.common.network.VelocityPacket;
 import me.shedaniel.autoconfig.AutoConfigClient;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -43,9 +43,9 @@ public class InfernalMobsClient implements ClientModInitializer {
         // client starting point, also local servers
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> InfernalMobsCore.instance().initIfNeeded(handler.getLevel()));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SidedCache.getInfernalMobs(handler.getLevel()).clear());
-        ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, level) -> InfernalMobsCore.clearAllElitesOfLevel(level));
+        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, level) -> InfernalMobsCore.clearAllElitesOfLevel(level));
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> onEntityJoinedWorld(entity));
-        ClientTickEvents.END_LEVEL_TICK.register(level -> InfernalMobsCore.instance().onTick(level));
+        ClientTickEvents.END_WORLD_TICK.register(level -> InfernalMobsCore.instance().onTick(level));
 
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossbar"), new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_choking"), new OverlayChoking.InfernalMobsChokingGuiOverlay());

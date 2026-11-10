@@ -81,7 +81,7 @@ public class MM_Alchemist extends MobModifier {
                 ItemStack itemstack = PotionContents.createItemStack(Items.SPLASH_POTION, potiontype);
                 Projectile.spawnProjectileUsingShoot(ThrownSplashPotion::new, serverLevel, itemstack, mob, xDistance, yDistance + absDistance * 0.2, zDistance, 0.75F, 8.0F);
 
-                mob.level().playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITCH_THROW, mob.getSoundSource(), 1.0F, 0.8F + mob.level().getRandom().nextFloat() * 0.4F);
+                mob.level().playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITCH_THROW, mob.getSoundSource(), 1.0F, 0.8F + mob.level().random.nextFloat() * 0.4F);
             }
         }
     }

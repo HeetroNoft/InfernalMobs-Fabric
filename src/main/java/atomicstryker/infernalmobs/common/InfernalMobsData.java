@@ -54,7 +54,7 @@ public final class InfernalMobsData {
      * or as a scoreboard tag
      */
     public static boolean hasTag(LivingEntity entity, String tag, CompoundTag entityNbt) {
-        if (entity.entityTags().contains(tag)) {
+        if (entity.getTags().contains(tag)) {
             return true;
         }
         return entityNbt.contains(tag) || entityNbt.getCompoundOrEmpty(AttachmentTarget.NBT_ATTACHMENT_KEY).contains(tag);
