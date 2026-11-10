@@ -10,17 +10,16 @@ import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.KnockBackPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import atomicstryker.infernalmobs.common.network.VelocityPacket;
-import me.shedaniel.autoconfig.AutoConfigClient;
+import me.shedaniel.autoconfig.AutoConfig;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -47,12 +46,12 @@ public class InfernalMobsClient implements ClientModInitializer {
         ClientEntityEvents.ENTITY_LOAD.register((entity, level) -> onEntityJoinedWorld(entity));
         ClientTickEvents.END_WORLD_TICK.register(level -> InfernalMobsCore.instance().onTick(level));
 
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossbar"), new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_choking"), new OverlayChoking.InfernalMobsChokingGuiOverlay());
-        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossglow"), new RendererBossGlow.InfernalMobsBossGlowOverlay());
+        HudRenderCallback.EVENT.register(new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
+        HudRenderCallback.EVENT.register(new OverlayChoking.InfernalMobsChokingGuiOverlay());
+        HudRenderCallback.EVENT.register(new RendererBossGlow.InfernalMobsBossGlowOverlay());
 
         // the loot lists get item suggestions in the config screen
-        AutoConfigClient.getGuiRegistry(Config.class).registerPredicateProvider(new LootListGuiProvider(),
+        AutoConfig.getGuiRegistry(Config.class).registerPredicateProvider(new LootListGuiProvider(),
                 field -> field.getName().startsWith("droppedItemIDs"));
     }
 

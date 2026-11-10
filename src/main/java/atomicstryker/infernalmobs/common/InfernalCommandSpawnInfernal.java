@@ -8,14 +8,12 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.permissions.Permissions;
-import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import org.apache.logging.log4j.Level;
@@ -29,14 +27,14 @@ public class InfernalCommandSpawnInfernal {
 
     public static final LiteralArgumentBuilder<CommandSourceStack> BUILDER =
             Commands.literal("spawninfernal")
-                    .requires((caller) -> caller.permissions().hasPermission(Permissions.COMMANDS_ADMIN))
+                    .requires((caller) -> caller.hasPermission(2))
                     .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                            .then(Commands.argument("entClass", IdentifierArgument.id())
+                            .then(Commands.argument("entClass", ResourceLocationArgument.id())
                                     .suggests(InfernalCommandSpawnInfernal::suggestEntities)
                                     .then(Commands.argument("modifiers", StringArgumentType.greedyString())
                                             .suggests(InfernalCommandSpawnInfernal::suggestModifiers)
                                             .executes((caller) -> {
-                                                execute(caller.getSource(), BlockPosArgument.getSpawnablePos(caller, "pos"), IdentifierArgument.getId(caller, "entClass"), StringArgumentType.getString(caller, "modifiers"));
+                                                execute(caller.getSource(), BlockPosArgument.getSpawnablePos(caller, "pos"), ResourceLocationArgument.getId(caller, "entClass"), StringArgumentType.getString(caller, "modifiers"));
                                                 return 1;
                                             }))));
 
@@ -61,7 +59,7 @@ public class InfernalCommandSpawnInfernal {
                 .filter(name -> !alreadyTyped.contains(name)), builder.createOffset(builder.getStart() + lastWordStart));
     }
 
-    private static void execute(CommandSourceStack source, BlockPos pos, Identifier entClassName, String modifiers) {
+    private static void execute(CommandSourceStack source, BlockPos pos, ResourceLocation entClassName, String modifiers) {
 
         Optional<EntityType<?>> chosenType = BuiltInRegistries.ENTITY_TYPE.getOptional(entClassName);
         if (chosenType.isEmpty() || !isSpawnable(chosenType.get())) {
@@ -69,7 +67,7 @@ public class InfernalCommandSpawnInfernal {
             return;
         }
 
-        LivingEntity mob = (LivingEntity) chosenType.get().create(source.getLevel(), EntitySpawnReason.COMMAND);
+        LivingEntity mob = (LivingEntity) chosenType.get().create(source.getLevel());
         if (mob == null) {
             source.sendFailure(Component.literal("Invalid SpawnInfernal command, failed to create [" + entClassName + "] instance in world"));
         }

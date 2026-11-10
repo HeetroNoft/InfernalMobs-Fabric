@@ -38,7 +38,7 @@ public class EntityEventHandler {
      * @return true if the death should be aborted
      */
     public boolean onEntityLivingDeath(LivingEntity entity) {
-        if (!entity.level().isClientSide()) {
+        if (!entity.level().isClientSide) {
             MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 return mod.onDeath();
@@ -48,7 +48,7 @@ public class EntityEventHandler {
     }
 
     public void onEntityLivingSetAttackTarget(LivingEntity entity, LivingEntity newTarget) {
-        if (!entity.level().isClientSide()) {
+        if (!entity.level().isClientSide) {
             MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 mod.onSetAttackTarget(entity, newTarget);
@@ -127,7 +127,7 @@ public class EntityEventHandler {
      * @return true if the fall damage should be canceled
      */
     public boolean onEntityLivingFall(LivingEntity entity, double distance) {
-        if (!entity.level().isClientSide()) {
+        if (!entity.level().isClientSide) {
             MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 return mod.onFall(distance);
@@ -137,7 +137,7 @@ public class EntityEventHandler {
     }
 
     public void onEntityLivingJump(LivingEntity entity) {
-        if (!entity.level().isClientSide()) {
+        if (!entity.level().isClientSide) {
             MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 mod.onJump(entity);
@@ -146,7 +146,7 @@ public class EntityEventHandler {
     }
 
     public void onEntityLivingUpdate(Entity entity) {
-        if (!entity.level().isClientSide() && entity instanceof LivingEntity) {
+        if (!entity.level().isClientSide && entity instanceof LivingEntity) {
             LivingEntity livingEntity = (LivingEntity) entity;
 
             // workaround to get save-loaded infernal entities working, init them on their first living tick
@@ -189,7 +189,7 @@ public class EntityEventHandler {
     }
 
     public void onEntityLivingDrops(LivingEntity entity, DamageSource source, boolean recentlyHit) {
-        if (!entity.level().isClientSide()) {
+        if (!entity.level().isClientSide) {
             MobModifier mod = InfernalMobsCore.getMobModifiers(entity);
             if (mod != null) {
                 mod.onDropItems(entity, source, recentlyHit);

@@ -3,7 +3,7 @@ package atomicstryker.infernalmobs.client;
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
 import atomicstryker.infernalmobs.common.SidedCache;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,9 +19,9 @@ public class RendererBossGlow {
 
     protected static long nextParticleTimeMillis;
 
-    public static class InfernalMobsBossGlowOverlay implements HudElement {
+    public static class InfernalMobsBossGlowOverlay implements HudRenderCallback {
         @Override
-        public void render(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
+        public void onHudRender(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
             Minecraft mc = Minecraft.getInstance();
             Entity viewEnt = mc.getCameraEntity();
             if (mc.isPaused() || viewEnt == null) {

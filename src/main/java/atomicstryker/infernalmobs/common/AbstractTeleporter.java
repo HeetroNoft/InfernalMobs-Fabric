@@ -45,7 +45,7 @@ public abstract class AbstractTeleporter extends MobModifier {
     }
 
     protected boolean teleportRandomly(LivingEntity mob) {
-        if (!mob.level().isClientSide() && mob.isAlive()) {
+        if (!mob.level().isClientSide && mob.isAlive()) {
             double d0 = mob.getX() + (mob.getRandom().nextDouble() - 0.5D) * 64.0D;
             double d1 = mob.getY() + (double) (mob.getRandom().nextInt(64) - 32);
             double d2 = mob.getZ() + (mob.getRandom().nextDouble() - 0.5D) * 64.0D;
@@ -67,7 +67,7 @@ public abstract class AbstractTeleporter extends MobModifier {
     protected boolean tryTeleportTo(LivingEntity mob, double x, double y, double z) {
         BlockPos.MutableBlockPos destination = new BlockPos.MutableBlockPos(x, y, z);
 
-        while (destination.getY() > mob.level().getMinY() && !mob.level().getBlockState(destination).blocksMotion()) {
+        while (destination.getY() > mob.level().getMinBuildHeight() && !mob.level().getBlockState(destination).blocksMotion()) {
             destination.move(Direction.DOWN);
         }
 

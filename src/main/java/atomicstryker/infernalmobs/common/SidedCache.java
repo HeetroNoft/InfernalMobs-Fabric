@@ -12,6 +12,6 @@ public class SidedCache {
     private static final ConcurrentHashMap<LivingEntity, MobModifier> rareMobsServer = new ConcurrentHashMap<>();
 
     public static Map<LivingEntity, MobModifier> getInfernalMobs(Level world) {
-        return world.isClientSide() ? rareMobsClient : rareMobsServer;
+        return world.isClientSide ? rareMobsClient : rareMobsServer;
     }
 }

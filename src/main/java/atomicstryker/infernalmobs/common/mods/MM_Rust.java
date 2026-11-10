@@ -3,7 +3,6 @@ package atomicstryker.infernalmobs.common.mods;
 import atomicstryker.infernalmobs.common.MobModifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -49,7 +48,7 @@ public class MM_Rust extends MobModifier {
     private void hurtArmor(Player player, DamageSource damageSource, float pDamageAmount) {
         if (pDamageAmount > 0.0F) {
             int i = (int) Math.max(1.0F, pDamageAmount / 4.0F);
-            for (EquipmentSlot equipmentSlot : EquipmentSlotGroup.ARMOR) {
+            for (EquipmentSlot equipmentSlot : new EquipmentSlot[]{EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD}) {
                 ItemStack itemstack = player.getItemBySlot(equipmentSlot);
                 if (itemstack.canBeHurtBy(damageSource)) {
                     itemstack.hurtAndBreak(i, player, equipmentSlot);

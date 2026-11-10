@@ -28,7 +28,7 @@ public class MM_Gravity extends MobModifier {
     public static void knockBack(LivingEntity target, double x, double z) {
         // if they rename this field, check net.minecraft.world.entity.LivingEntity.knockback
         // if that is renamed too, check RamTarget impl
-        target.needsSync = true;
+        target.hasImpulse = true;
         float normalizedPower = Mth.sqrt((float) (x * x + z * z));
         float knockPower = 0.8F;
 
@@ -81,7 +81,7 @@ public class MM_Gravity extends MobModifier {
 
             mob.level().playSound(null, mob.blockPosition(), SoundEvents.IRON_GOLEM_ATTACK, SoundSource.HOSTILE, 1.0F + mob.getRandom().nextFloat(), mob.getRandom().nextFloat() * 0.7F + 0.3F);
 
-            if (mob.level().isClientSide() || !(target instanceof ServerPlayer)) {
+            if (mob.level().isClientSide || !(target instanceof ServerPlayer)) {
                 knockBack(target, diffX, diffZ);
             } else {
                 InfernalMobsCore.instance().sendKnockBackPacket((ServerPlayer) target, (float) diffX, (float) diffZ);

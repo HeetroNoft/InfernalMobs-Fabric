@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LivingEntityMixin {
 
     @Shadow
-    protected int lastHurtByPlayerMemoryTime;
+    protected int lastHurtByPlayerTime;
 
     @Inject(method = "knockback(DDD)V", at = @At("HEAD"), cancellable = true)
     private void infernalmobs$onKnockback(CallbackInfo ci) {
@@ -26,7 +26,7 @@ public abstract class LivingEntityMixin {
     }
 
     @Inject(method = "causeFallDamage", at = @At("HEAD"), cancellable = true)
-    private void infernalmobs$onFall(double fallDistance, float damageModifier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
+    private void infernalmobs$onFall(float fallDistance, float damageModifier, DamageSource damageSource, CallbackInfoReturnable<Boolean> cir) {
         if (InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingFall((LivingEntity) (Object) this, fallDistance)) {
             cir.setReturnValue(false);
         }
@@ -39,14 +39,14 @@ public abstract class LivingEntityMixin {
 
     @Inject(method = "dropAllDeathLoot", at = @At("TAIL"))
     private void infernalmobs$onDrops(ServerLevel level, DamageSource source, CallbackInfo ci) {
-        InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingDrops((LivingEntity) (Object) this, source, lastHurtByPlayerMemoryTime > 0);
+        InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingDrops((LivingEntity) (Object) this, source, lastHurtByPlayerTime > 0);
     }
 
     /**
      * modifies the damage after armor, enchantments and absorption, right before it is applied to health
      */
     @ModifyVariable(method = "actuallyHurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;getCombatTracker()Lnet/minecraft/world/damagesource/CombatTracker;"), argsOnly = true)
-    private float infernalmobs$onHurt(float damage, ServerLevel level, DamageSource source) {
+    private float infernalmobs$onHurt(float damage, DamageSource source) {
         return InfernalMobsCore.instance().getEntityEventHandler().onEntityLivingHurt((LivingEntity) (Object) this, source, damage);
     }
 }

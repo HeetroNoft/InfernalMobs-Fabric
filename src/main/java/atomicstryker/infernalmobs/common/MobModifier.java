@@ -207,7 +207,7 @@ public abstract class MobModifier {
             return false;
         }
         if (mob instanceof NeutralMob neutralMob && target.level() instanceof ServerLevel) {
-            if (!neutralMob.isAngryAt(target, (ServerLevel) target.level())) {
+            if (!neutralMob.isAngryAt(target)) {
                 return false;
             }
         }
@@ -261,7 +261,7 @@ public abstract class MobModifier {
         if (nextMod != null) {
             amount = nextMod.onHurt(mob, source, amount);
         } else if (source.getDirectEntity() != null) {
-            if (source.getDirectEntity().level().isClientSide() && source.getDirectEntity() instanceof Player) {
+            if (source.getDirectEntity().level().isClientSide && source.getDirectEntity() instanceof Player) {
                 InfernalMobsCore.instance().sendHealthRequestPacket(source.getDirectEntity().getName().getString(), mob);
             }
         }
@@ -353,7 +353,7 @@ public abstract class MobModifier {
     }
 
     private void increaseMaxHealthForMobIfNeeded(LivingEntity mob) {
-        if (mob.level().isClientSide() || InfernalMobsCore.instance().healthChangesDisabled()) {
+        if (mob.level().isClientSide || InfernalMobsCore.instance().healthChangesDisabled()) {
             return;
         }
         float storedMaxHealth = InfernalMobsData.getMaxHealth(mob, 0F);
@@ -372,7 +372,7 @@ public abstract class MobModifier {
      * @return buffered modified max health
      */
     public float getActualMaxHealth(LivingEntity mob) {
-        if (!mob.level().isClientSide() && actualMaxHealth < 1F) {
+        if (!mob.level().isClientSide && actualMaxHealth < 1F) {
             actualMaxHealth = InfernalMobsData.getMaxHealth(mob, 1F);
         }
         return actualMaxHealth;

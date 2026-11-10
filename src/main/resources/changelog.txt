@@ -1,5 +1,5 @@
-1.1.0+mc1.21.11
-- ported to MC 1.21.11 with Fabric API 0.141.6+1.21.11, Cloth Config 21.11.153 and Mod Menu 17.0.1, requires Java 21
+1.1.0+mc1.21.1
+- ported to MC 1.21.1 with Fabric API 0.116.18+1.21.1, Cloth Config 15.0.140 and Mod Menu 11.0.5, requires Java 21
 - same features as 1.1.0+mc26.2
 
 1.1.0+mc26.2

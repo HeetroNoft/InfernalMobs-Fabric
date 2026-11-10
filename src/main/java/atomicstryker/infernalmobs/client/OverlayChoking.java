@@ -2,12 +2,11 @@ package atomicstryker.infernalmobs.client;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.network.AirPacket;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,9 +14,9 @@ import org.jetbrains.annotations.NotNull;
 
 public class OverlayChoking {
 
-    private static final Identifier GUI_ICONS_LOCATION = Identifier.parse("textures/gui/icons.png");
-    private static final Identifier AIR_SPRITE = Identifier.withDefaultNamespace("hud/air");
-    private static final Identifier AIR_POPPING_SPRITE = Identifier.withDefaultNamespace("hud/air_bursting");
+    private static final ResourceLocation GUI_ICONS_LOCATION = ResourceLocation.parse("textures/gui/icons.png");
+    private static final ResourceLocation AIR_SPRITE = ResourceLocation.withDefaultNamespace("hud/air");
+    private static final ResourceLocation AIR_POPPING_SPRITE = ResourceLocation.withDefaultNamespace("hud/air_bursting");
 
     private static final Minecraft mc = Minecraft.getInstance();
 
@@ -29,9 +28,9 @@ public class OverlayChoking {
         airDisplayTimeout = System.currentTimeMillis() + 3000L;
     }
 
-    public static class InfernalMobsChokingGuiOverlay implements HudElement {
+    public static class InfernalMobsChokingGuiOverlay implements HudRenderCallback {
         @Override
-        public void render(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
+        public void onHudRender(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
             if (System.currentTimeMillis() > airDisplayTimeout) {
                 airOverrideValue = -999;
             }
@@ -53,9 +52,9 @@ public class OverlayChoking {
 
                 for (int j5 = 0; j5 < fullBubbles + partialBubbles; ++j5) {
                     if (j5 < fullBubbles) {
-                        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, AIR_SPRITE, leftScreenCoordinate - j5 * 8 - 9, topScreenCoordinate, 9, 9);
+                        guiGraphics.blitSprite(AIR_SPRITE, leftScreenCoordinate - j5 * 8 - 9, topScreenCoordinate, 9, 9);
                     } else {
-                        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, AIR_POPPING_SPRITE, leftScreenCoordinate - j5 * 8 - 9, topScreenCoordinate, 9, 9);
+                        guiGraphics.blitSprite(AIR_POPPING_SPRITE, leftScreenCoordinate - j5 * 8 - 9, topScreenCoordinate, 9, 9);
                     }
                 }
             }

@@ -56,7 +56,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.EnchantmentTags;
@@ -329,7 +329,7 @@ public class InfernalMobsCore implements ModInitializer {
      * @param entity Entity in question, already asserted to be instanceof Enemy
      */
     public void processEntitySpawn(LivingEntity entity) {
-        if (!entity.level().isClientSide() && mobMods != null) {
+        if (!entity.level().isClientSide && mobMods != null) {
             if (!getIsRareEntityOnline(entity) && !isBlockedBeingInfernal(entity)) {
                 if (isClassAllowed(entity) && (instance.checkEntityClassForced(entity) || entity.level().random.nextInt(Config.get().eliteRarity) == 0)) {
                     try {
@@ -339,7 +339,7 @@ public class InfernalMobsCore implements ModInitializer {
                             ServerWorld serverworld = p_212592_0_.getSource().getServer().getWorld(registrykey);
                          */
                         ResourceKey<Level> worldRegistryKey = entity.level().dimension();
-                        Identifier worldIdentifier = worldRegistryKey.identifier();
+                        ResourceLocation worldIdentifier = worldRegistryKey.location();
 
                         // Skip Infernal-Spawn when Dimension is Blacklisted, entries look like: "minecraft:overworld"
                         if (!Config.get().dimensionIDBlackList.contains(worldIdentifier.toString())) {
@@ -663,16 +663,16 @@ public class InfernalMobsCore implements ModInitializer {
     private void enchantRandomly(Level level, ItemStack itemStack, int itemEnchantability, int modStr) {
         int remainStr = (modStr + 1) / 2; // should result in 1-3
 
-        Optional<HolderSet.Named<Enchantment>> optional = level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).get(EnchantmentTags.ON_RANDOM_LOOT);
+        Optional<HolderSet.Named<Enchantment>> optional = level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getTag(EnchantmentTags.ON_RANDOM_LOOT);
         Stream<Holder<Enchantment>> holderStream = optional.map(HolderSet::stream)
-                .orElseGet(() -> level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements().map(ref -> ref));
+                .orElseGet(() -> level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).holders().map(ref -> ref));
         List<?> enchantments = EnchantmentHelper.selectEnchantment(level.getRandom(), itemStack, itemEnchantability, holderStream);
 
         Iterator<?> iter = enchantments.iterator();
         while (iter.hasNext() && remainStr > 0) {
             remainStr--;
             EnchantmentInstance eData = (EnchantmentInstance) iter.next();
-            itemStack.enchant(eData.enchantment(), eData.level());
+            itemStack.enchant(eData.enchantment, eData.level);
         }
     }
 
@@ -738,7 +738,7 @@ public class InfernalMobsCore implements ModInitializer {
             resetModifiedPlayerEntitiesAsNeeded(level);
         }
 
-        if (!level.isClientSide()) {
+        if (!level.isClientSide) {
             infCheckA = null;
             infCheckB = null;
         }

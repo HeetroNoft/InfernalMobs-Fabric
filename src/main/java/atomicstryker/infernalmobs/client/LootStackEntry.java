@@ -10,17 +10,15 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Comparator;
@@ -100,9 +98,9 @@ public class LootStackEntry extends TooltipListEntry<String> {
         String count = "1";
         String extras = "";
         try {
-            CompoundTag tag = TagParser.parseCompoundFully(value);
-            id = tag.getStringOr("id", "");
-            count = String.valueOf(tag.getIntOr("count", 1));
+            CompoundTag tag = TagParser.parseTag(value);
+            id = tag.getString("id");
+            count = String.valueOf(tag.contains("count") ? tag.getInt("count") : 1);
             tag.remove("id");
             tag.remove("count");
             extras = tag.isEmpty() ? "" : tag.toString();
@@ -146,7 +144,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     private ItemChoice findChoice(String text) {
-        Identifier identifier = Identifier.tryParse(text);
+        ResourceLocation identifier = ResourceLocation.tryParse(text);
         String id = identifier != null ? identifier.toString() : text;
         for (ItemChoice choice : choices) {
             if (choice.id().equals(id) || choice.name().equalsIgnoreCase(text)) {
@@ -238,7 +236,7 @@ public class LootStackEntry extends TooltipListEntry<String> {
             return true;
         }
         try {
-            TagParser.parseCompoundFully(extras);
+            TagParser.parseTag(extras);
             return true;
         } catch (CommandSyntaxException e) {
             return false;
@@ -341,12 +339,12 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (isOverPopup(event.x(), event.y())) {
-            select(matches.get(scroll + (int) ((event.y() - popupY) / SUGGESTION_HEIGHT)));
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (isOverPopup(mouseX, mouseY)) {
+            select(matches.get(scroll + (int) ((mouseY - popupY) / SUGGESTION_HEIGHT)));
             return true;
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
@@ -359,20 +357,20 @@ public class LootStackEntry extends TooltipListEntry<String> {
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (isPopupOpen()) {
-            if (event.key() == GLFW.GLFW_KEY_DOWN || event.key() == GLFW.GLFW_KEY_UP) {
-                highlighted = Math.clamp(highlighted + (event.key() == GLFW.GLFW_KEY_DOWN ? 1 : -1), 0, matches.size() - 1);
+            if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_UP) {
+                highlighted = Math.clamp(highlighted + (keyCode == GLFW.GLFW_KEY_DOWN ? 1 : -1), 0, matches.size() - 1);
                 // keep the highlighted suggestion in view
                 scroll = Math.clamp(scroll, highlighted - shownSuggestions() + 1, highlighted);
                 return true;
             }
-            if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER || event.key() == GLFW.GLFW_KEY_TAB) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_TAB) {
                 select(matches.get(highlighted));
                 return true;
             }
         }
-        return super.keyPressed(event);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override

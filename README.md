@@ -2,7 +2,7 @@
 
 Fabric port of AtomicStryker's Infernal Mobs: hostile mobs randomly spawn with Diablo-style modifiers and drop loot rewards when defeated.
 
-- Minecraft 1.21.11
+- Minecraft 1.21.1
 - Fabric Loader 0.20.1+
 - Fabric API (required)
 - Cloth Config (required)

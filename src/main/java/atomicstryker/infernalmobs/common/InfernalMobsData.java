@@ -5,10 +5,8 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentTarget;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
-import net.minecraft.util.ProblemReporter;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.storage.TagValueOutput;
 
 /**
  * Persistent per-entity data, stored with the Fabric Data Attachment API
@@ -19,10 +17,10 @@ public final class InfernalMobsData {
      * saved modifier string, or the non infernal marker
      */
     private static final AttachmentType<String> MODIFIERS = AttachmentRegistry.createPersistent(
-            Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "modifiers"), Codec.STRING);
+            ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "modifiers"), Codec.STRING);
 
     private static final AttachmentType<Float> MAX_HEALTH = AttachmentRegistry.createPersistent(
-            Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "max_health"), Codec.FLOAT);
+            ResourceLocation.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, "max_health"), Codec.FLOAT);
 
     private InfernalMobsData() {
     }
@@ -57,12 +55,10 @@ public final class InfernalMobsData {
         if (entity.getTags().contains(tag)) {
             return true;
         }
-        return entityNbt.contains(tag) || entityNbt.getCompoundOrEmpty(AttachmentTarget.NBT_ATTACHMENT_KEY).contains(tag);
+        return entityNbt.contains(tag) || entityNbt.getCompound(AttachmentTarget.NBT_ATTACHMENT_KEY).contains(tag);
     }
 
     public static CompoundTag saveEntityNbt(LivingEntity entity) {
-        TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, entity.level().registryAccess());
-        entity.saveWithoutId(output);
-        return output.buildResult();
+        return entity.saveWithoutId(new CompoundTag());
     }
 }

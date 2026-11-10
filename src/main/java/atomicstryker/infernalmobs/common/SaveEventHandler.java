@@ -11,7 +11,7 @@ public class SaveEventHandler {
     // DOES NOT WORK IN 1.17
 //    @SubscribeEvent
 //    public void onChunkLoad(ChunkEvent.Load event) {
-//        if (event.getWorld() == null || event.getWorld().isClientSide()) {
+//        if (event.getWorld() == null || event.getWorld().isClientSide) {
 //            return;
 //        }
 //        if (event.getChunk() instanceof LevelChunk) {

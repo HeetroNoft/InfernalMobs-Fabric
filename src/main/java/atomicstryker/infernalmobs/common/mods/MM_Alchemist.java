@@ -8,8 +8,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownSplashPotion;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
@@ -64,7 +63,7 @@ public class MM_Alchemist extends MobModifier {
 
             Holder<Potion> potiontype = Potions.HARMING;
 
-            if (distance >= 8.0F && !target.hasEffect(MobEffects.SLOWNESS)) {
+            if (distance >= 8.0F && !target.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)) {
                 potiontype = Potions.SLOWNESS;
             } else if (target.getHealth() >= 8.0F && !target.hasEffect(MobEffects.POISON)) {
                 potiontype = Potions.POISON;
@@ -79,7 +78,11 @@ public class MM_Alchemist extends MobModifier {
                 double zDistance = target.getZ() + vec3.z - mob.getZ();
                 double absDistance = Math.sqrt(xDistance * xDistance + zDistance * zDistance);
                 ItemStack itemstack = PotionContents.createItemStack(Items.SPLASH_POTION, potiontype);
-                Projectile.spawnProjectileUsingShoot(ThrownSplashPotion::new, serverLevel, itemstack, mob, xDistance, yDistance + absDistance * 0.2, zDistance, 0.75F, 8.0F);
+                ThrownPotion potion = new ThrownPotion(serverLevel, mob);
+                potion.setItem(itemstack);
+                potion.setXRot(potion.getXRot() + 20.0F);
+                potion.shoot(xDistance, yDistance + absDistance * 0.2, zDistance, 0.75F, 8.0F);
+                serverLevel.addFreshEntity(potion);
 
                 mob.level().playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.WITCH_THROW, mob.getSoundSource(), 1.0F, 0.8F + mob.level().random.nextFloat() * 0.4F);
             }

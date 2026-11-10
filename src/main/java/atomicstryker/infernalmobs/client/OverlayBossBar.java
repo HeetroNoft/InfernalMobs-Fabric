@@ -4,7 +4,7 @@ import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
 import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -41,9 +41,9 @@ public class OverlayBossBar {
 
     private static LinkedHashMap<UUID, LerpingBossEvent> vanillaBossEventsMap = null;
 
-    public static class InfernalMobsHealthBarGuiOverlay implements HudElement {
+    public static class InfernalMobsHealthBarGuiOverlay implements HudRenderCallback {
         @Override
-        public void render(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
+        public void onHudRender(@NotNull GuiGraphics guiGraphics, DeltaTracker partialTick) {
             if (InfernalMobsCore.instance().getIsHealthBarDisabled() || mc.gui.getBossOverlay().shouldPlayMusic()) {
                 return;
             }
