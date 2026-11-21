@@ -1,15 +1,18 @@
 package atomicstryker.infernalmobs.common;
 
 import atomicstryker.infernalmobs.client.ConfigPreviews;
+import atomicstryker.infernalmobs.client.EntityTagSuggestions;
 import fr.heetstudio.confee.api.Confee;
 import fr.heetstudio.confee.api.ConfeeConfig;
 import fr.heetstudio.confee.api.annotation.AllowDuplicates;
 import fr.heetstudio.confee.api.annotation.Comment;
+import fr.heetstudio.confee.api.annotation.Dimension;
 import fr.heetstudio.confee.api.annotation.Hidden;
 import fr.heetstudio.confee.api.annotation.Preview;
 import fr.heetstudio.confee.api.annotation.Range;
 import fr.heetstudio.confee.api.annotation.RequiresRestart;
 import fr.heetstudio.confee.api.annotation.Section;
+import fr.heetstudio.confee.api.annotation.Suggestions;
 import fr.heetstudio.confee.api.annotation.Theme;
 
 import java.util.ArrayList;
@@ -130,10 +133,13 @@ public class Config {
 
     @Comment("Defines the dimensions where mobs never get modifiers.\n" +
             "Example: [\"minecraft:the_nether\", \"minecraft:the_end\"]")
+    @Dimension
     public List<String> dimensionIDBlackList = new ArrayList<>();
 
     @Comment("Mobs having one of these NBT keys or scoreboard tags never get modifiers.\n" +
             "Example: [\"affixes\"] to leave the mobs of the Champions mod alone.")
+    // the Champions mod marks its mobs with "affixes"; the other suggestions are the scoreboard tags of the world
+    @Suggestions(value = "affixes", provider = EntityTagSuggestions.class)
     public List<String> entityTagBlackList = new ArrayList<>();
 
     @Comment("Settings of the colored outline drawn around infernal mobs, only used on the client.\n" +
