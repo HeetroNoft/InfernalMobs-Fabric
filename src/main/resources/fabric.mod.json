@@ -24,9 +24,6 @@
     ],
     "client": [
       "atomicstryker.infernalmobs.client.InfernalMobsClient"
-    ],
-    "modmenu": [
-      "atomicstryker.infernalmobs.client.InfernalMobsModMenu"
     ]
   },
   "mixins": [
@@ -37,7 +34,7 @@
     "minecraft": "~${minecraft_version}",
     "java": ">=25",
     "fabric-api": "*",
-    "cloth-config": ">=${cloth_config_version}"
+    "confee": "*"
   },
   "suggests": {
     "modmenu": "*"
