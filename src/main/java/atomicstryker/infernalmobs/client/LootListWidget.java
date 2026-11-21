@@ -433,7 +433,8 @@ public class LootListWidget extends OptionWidget<List<String>> {
         g.fill(x + 1, y + 1, x + width - 1, y + height - 1, t.buttonShadow());
         g.fill(x + 1, y + 1, x + width - 1, y + height - 3, face);
         int textW = font().width(text);
-        g.text(font(), text, x + (width - textW) / 2, y + (height - 2 - 8) / 2, t.textOnLight());
+        // no shadow: a dark shadow makes dark text on a light face unreadable
+        g.text(font(), text, x + (width - textW) / 2, y + (height - 2 - 8) / 2, t.textOnLight(), false);
     }
 
     private static void outline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
