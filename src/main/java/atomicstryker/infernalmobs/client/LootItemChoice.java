@@ -4,7 +4,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,9 +12,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * An item as offered in the loot suggestions, searchable by its in game name and its id.
+ * An item as offered in the loot suggestions, searchable by its in game name and its id. The icon is drawn by
+ * {@code ConfeeIcons}, which also works from the title screen.
  */
-record LootItemChoice(Item item, ItemStack stack, String name, String id, String searchKey) {
+record LootItemChoice(Item item, String name, String id, String searchKey) {
 
     static List<LootItemChoice> all() {
         return BuiltInRegistries.ITEM.stream()
@@ -26,10 +26,9 @@ record LootItemChoice(Item item, ItemStack stack, String name, String id, String
     }
 
     private static LootItemChoice of(Item item) {
-        ItemStack stack = new ItemStack(item);
-        String name = stack != null ? stack.getHoverName().getString() : Component.translatable(item.getDescriptionId()).getString();
+        String name = Component.translatable(item.getDescriptionId()).getString();
         String id = BuiltInRegistries.ITEM.getKey(item).toString();
-        return new LootItemChoice(item, stack, name, id, (name + " " + id).toLowerCase(Locale.ROOT));
+        return new LootItemChoice(item, name, id, (name + " " + id).toLowerCase(Locale.ROOT));
     }
 
     /**

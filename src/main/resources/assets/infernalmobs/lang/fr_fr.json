@@ -335,6 +335,7 @@
   "infernalmobs.config.loot.error.unknownItem": "Objet inconnu : %s",
   "infernalmobs.config.loot.error.noItem": "Choisissez un objet",
   "infernalmobs.config.loot.error.invalidCount": "La quantité doit être un nombre entier supérieur à 0",
+  "infernalmobs.config.loot.error.lines": "%s lignes ont une erreur : corrigez-les pour enregistrer",
   "infernalmobs.config.loot.item": "Objet",
   "infernalmobs.config.loot.extras": "SNBT supplémentaire",
   "infernalmobs.config.loot.count": "Qté",
