@@ -5,12 +5,14 @@ Fabric port of AtomicStryker's Infernal Mobs: hostile mobs randomly spawn with D
 - Minecraft 26.1, 26.1.1 and 26.1.2
 - Fabric Loader 0.20.1+
 - Fabric API (required)
-- Cloth Config (required)
-- Mod Menu (optional, adds the config screen button)
+- Confee (required)
+- Mod Menu (optional, shows the config screen button)
 
 If you want to use this mod in modpacks, see the license at the bottom of <https://atomicstryker.github.io/>
 
 ## Building
+
+Confee is not on Modrinth yet: build it from its sources, then copy its Fabric jar to `.SourcesMods/` (see `confee_jar` in `gradle.properties`).
 
 Loom requires Gradle itself to run on Java 25. Point `JAVA_HOME` to a Java 25 JDK, then:
 
@@ -24,7 +26,9 @@ To test in game, use `./gradlew runClient` or `./gradlew runServer`.
 
 ## Configuration
 
-The config file is created on first launch at `config/InfernalMobs-common.toml`. Every setting is documented in the file with its description, default value and allowed range. The config uses Cloth Config's AutoConfig, so it can also be edited in game from the Mod Menu config screen.
+The config file is created on first launch at `config/infernalmobs-common.toml`. Every setting is documented in the file with its description and allowed range. The config uses Confee, so it can also be edited in game from the Mod Menu config screen, with live previews of the rarities, mob health, outline and loot.
+
+A `config/InfernalMobs-common.toml` file from an older version is renamed to `infernalmobs-common.toml` on first launch, its values are kept.
 
 ## For mod developers
 

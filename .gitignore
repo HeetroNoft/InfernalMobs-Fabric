@@ -25,3 +25,6 @@ classes
 
 # tool state
 .omc
+.env
+.SourcesMods
+CONFEE_IMPROVEMENTS.md
