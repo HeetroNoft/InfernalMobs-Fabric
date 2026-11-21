@@ -9,8 +9,6 @@
     "ServerLevelMixin"
   ],
   "client": [
-    "client.BaseListEntryMixin",
-    "client.ElementEntryMixin",
     "client.LevelRendererMixin"
   ],
   "injectors": {
