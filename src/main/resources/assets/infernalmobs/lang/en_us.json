@@ -253,5 +253,11 @@
     "infernalmobs.config.preview.health.range": "%s to %s",
     "infernalmobs.config.preview.outline.off": "Outline disabled",
     "infernalmobs.config.preview.outline.distance": "Drawn up to %s blocks",
+    "infernalmobs.config.preview.outline.shown": "%s: outlined",
+    "infernalmobs.config.preview.outline.hidden": "%s: no outline",
+    "infernalmobs.config.preview.outline.visible": "In sight",
+    "infernalmobs.config.preview.outline.behindWall": "Hidden",
+    "infernalmobs.config.preview.outline.walls.on": "Through blocks",
+    "infernalmobs.config.preview.outline.walls.off": "Line of sight only",
     "infernalmobs.config.preview.loot.title": "%s item stacks"
 }
