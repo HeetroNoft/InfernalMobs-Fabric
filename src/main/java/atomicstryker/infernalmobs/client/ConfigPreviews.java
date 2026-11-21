@@ -197,6 +197,7 @@ public final class ConfigPreviews {
     private static final Identifier BRICKS = Identifier.withDefaultNamespace("textures/block/stone_bricks.png");
     private static final int GROUND = 0xFF3A3A3C;
     private static final int DIMMED = 0xB01A1A1B;
+    private static final int DIMMED_TEXT = 0xFF4A4A4C;
     // sample distances of the "max distance" scene, in blocks
     private static final int[] DISTANCES = {8, 16, 32, 64, 128};
 
@@ -313,10 +314,13 @@ public final class ConfigPreviews {
                 int cellX = x + tier * third;
                 int color = state.color(tier);
                 zombie(g, cellX + (third - dollW) / 2, top, scale, color, true);
-                centered(g, tierName(tier), cellX + third / 2, groundY + 4, color != 0 ? color : DIM);
-                if (focus >= 0 && tier != focus) {
-                    g.fill(cellX, y, cellX + third, groundY + 14, DIMMED);
+                boolean dimmed = focus >= 0 && tier != focus;
+                if (dimmed) {
+                    g.fill(cellX, y, cellX + third, groundY + 2, DIMMED);
                 }
+                // dimmed through the color: some versions draw the text above the fills
+                int labelColor = dimmed ? DIMMED_TEXT : color != 0 ? color : DIM;
+                centered(g, tierName(tier), cellX + third / 2, groundY + 4, labelColor);
             }
             String footer;
             if (!state.enabled()) {
