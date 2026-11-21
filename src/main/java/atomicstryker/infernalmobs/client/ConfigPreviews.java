@@ -6,6 +6,7 @@ import fr.heetstudio.confee.api.PreviewRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
@@ -30,10 +31,6 @@ public final class ConfigPreviews {
     private static final int INFERNAL = 0xFFFF5555;
     private static final int TEXT = 0xFFE0E0E0;
     private static final int DIM = 0xFF8A8A8D;
-    private static final int MOB = 0xFF3B5E3B;
-    private static final int MOB_DARK = 0xFF2A452A;
-    private static final int WALL = 0xFF6E6E70;
-    private static final int WALL_DARK = 0xFF58585A;
     private static final String KEY = "infernalmobs.config.preview.";
 
     private ConfigPreviews() {
@@ -196,197 +193,322 @@ public final class ConfigPreviews {
 
     // ------------------------------------------------------------------ outline
 
+    private static final Identifier ZOMBIE = Identifier.withDefaultNamespace("textures/entity/zombie/zombie.png");
+    private static final Identifier BRICKS = Identifier.withDefaultNamespace("textures/block/stone_bricks.png");
+    private static final int GROUND = 0xFF3A3A3C;
+    private static final int DIMMED = 0xB01A1A1B;
+    // sample distances of the "max distance" scene, in blocks
+    private static final int[] DISTANCES = {8, 16, 32, 64, 128};
+
     /**
-     * Three mobs, one per tier, with the outline they get. The "through walls" preview puts a wall in front of them.
+     * Front faces of a zombie, as in the inventory: x, y, width, height on a 16 x 32 pixel doll, then u, v in the
+     * 64 x 64 skin. The left arm and leg use the right ones, like the zombie model.
      */
-    public abstract static class Outline implements PreviewRenderer {
+    private static final int[][] ZOMBIE_PARTS = {
+            {4, 0, 8, 8, 8, 8},      // head
+            {4, 8, 8, 12, 20, 20},   // body
+            {0, 8, 4, 12, 44, 20},   // right arm
+            {12, 8, 4, 12, 44, 20},  // left arm
+            {4, 20, 4, 12, 4, 20},   // right leg
+            {8, 20, 4, 12, 4, 20},   // left leg
+    };
 
-        /** enabled, throughWalls, rare, ultra, infernal, with the edited value applied */
-        abstract boolean[] flags(Object value);
+    /** Screen rectangle of a doll part: x0, y0, x1, y1. Both edges are rounded so the parts join at any scale. */
+    private static int[] part(int x, int y, float scale, int[] p) {
+        return new int[]{x + Math.round(p[0] * scale), y + Math.round(p[1] * scale),
+                x + Math.round((p[0] + p[2]) * scale), y + Math.round((p[1] + p[3]) * scale)};
+    }
 
-        boolean showWall() {
-            return false;
+    /**
+     * A zombie, 16 x 32 pixels at scale 1, top left corner at x, y.
+     *
+     * @param outline color of the outline, 0 for none. Like the Glowing effect, it follows the silhouette 1 pixel
+     *                around the body, whatever the distance.
+     * @param body    false to draw only the outline (the mob is hidden behind blocks)
+     */
+    private static void zombie(GuiGraphicsExtractor g, int x, int y, float scale, int outline, boolean body) {
+        if (outline != 0) {
+            for (int[] p : ZOMBIE_PARTS) {
+                int[] r = part(x, y, scale, p);
+                g.fill(r[0] - 1, r[1] - 1, r[2] + 1, r[3] + 1, outline);
+            }
         }
+        if (body) {
+            for (int[] p : ZOMBIE_PARTS) {
+                int[] r = part(x, y, scale, p);
+                g.blit(RenderPipelines.GUI_TEXTURED, ZOMBIE, r[0], r[1], p[4], p[5], r[2] - r[0], r[3] - r[1], p[2], p[3], 64, 64);
+            }
+        }
+    }
+
+    /** Stone bricks filling a rectangle, tiles aligned on the rectangle's top left corner. */
+    private static void wall(GuiGraphicsExtractor g, int x0, int y0, int x1, int y1, int clipX0, int clipY0, int clipX1, int clipY1) {
+        g.enableScissor(Math.max(x0, clipX0), Math.max(y0, clipY0), Math.min(x1, clipX1), Math.min(y1, clipY1));
+        for (int ty = y0; ty < y1; ty += 16) {
+            for (int tx = x0; tx < x1; tx += 16) {
+                g.blit(RenderPipelines.GUI_TEXTURED, BRICKS, tx, ty, 0, 0, 16, 16, 16, 16);
+            }
+        }
+        g.disableScissor();
+    }
+
+    /** The settings of the outline, with the option being edited applied. */
+    private record OutlineState(boolean enabled, boolean throughWalls, int maxDistance, boolean[] tiers) {
+
+        static OutlineState saved() {
+            Config.Outline o = Config.get().outline;
+            return new OutlineState(o.enabled, o.throughWalls, o.maxDistance, new boolean[]{o.rare, o.ultra, o.infernal});
+        }
+
+        int color(int tier) {
+            return enabled && tiers[tier] ? TIER_COLORS[tier] : 0;
+        }
+
+        /** Color of the highest tier that is outlined, 0 when none is. */
+        int topColor() {
+            for (int tier = 2; tier >= 0; tier--) {
+                if (color(tier) != 0) {
+                    return color(tier);
+                }
+            }
+            return 0;
+        }
+    }
+
+    private static final int[] TIER_COLORS = {RARE, ULTRA, INFERNAL};
+
+    private static String tierName(int tier) {
+        return tr(tier == 0 ? "rare" : tier == 1 ? "ultra" : "infernal");
+    }
+
+    private static void centered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
+        g.text(font(), text, centerX - font().width(text) / 2, y, color);
+    }
+
+    /**
+     * One zombie per tier, with the outline it gets. The tier toggles put their tier forward and dim the two others.
+     */
+    private abstract static class Tiers implements PreviewRenderer {
+
+        /** -1: every tier, else the tier of the option */
+        private final int focus;
+
+        Tiers(int focus) {
+            this.focus = focus;
+        }
+
+        abstract OutlineState state(Object value);
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            boolean[] f = flags(value);
-            int mobW = 12;
+            OutlineState state = state(value);
             int third = width / 3;
-            int[] colors = {RARE, ULTRA, INFERNAL};
-            String[] names = {tr("rare"), tr("ultra"), tr("infernal")};
-            int mobY = y + 6;
-            for (int i = 0; i < 3; i++) {
-                int mx = x + i * third + (third - mobW) / 2;
-                boolean outlined = f[0] && f[2 + i];
-                mob(g, mx, mobY, outlined ? colors[i] : 0);
-                String name = names[i];
-                g.text(font(), name, mx + mobW / 2 - font().width(name) / 2, mobY + 40, outlined ? colors[i] : DIM);
-            }
-            if (showWall()) {
-                // a wall hiding the legs: the outline shows through it like the Glowing effect
-                int wallY = mobY + 18;
-                g.fill(x, wallY, x + width, wallY + 18, WALL);
-                for (int bx = x; bx < x + width; bx += 16) {
-                    g.fill(bx, wallY, bx + 1, wallY + 18, WALL_DARK);
-                }
-                g.fill(x, wallY + 8, x + width, wallY + 9, WALL_DARK);
-                if (f[1]) {
-                    for (int i = 0; i < 3; i++) {
-                        if (f[0] && f[2 + i]) {
-                            int mx = x + i * third + (third - mobW) / 2;
-                            outlineOnly(g, mx, mobY, colors[i], wallY);
-                        }
-                    }
+            float scale = third >= 36 ? 2 : 1.5f;
+            int dollW = Math.round(16 * scale);
+            int dollH = Math.round(32 * scale);
+            int top = y + 4;
+            int groundY = top + dollH;
+            g.fill(x, groundY, x + width, groundY + 1, GROUND);
+            for (int tier = 0; tier < 3; tier++) {
+                int cellX = x + tier * third;
+                int color = state.color(tier);
+                zombie(g, cellX + (third - dollW) / 2, top, scale, color, true);
+                centered(g, tierName(tier), cellX + third / 2, groundY + 4, color != 0 ? color : DIM);
+                if (focus >= 0 && tier != focus) {
+                    g.fill(cellX, y, cellX + third, groundY + 14, DIMMED);
                 }
             }
-            line(g, f[0] ? footer(value) : tr("outline.off"), x, y + height - 10, width, DIM);
-        }
-
-        String footer(Object value) {
-            return tr("outline.distance", Config.get().outline.maxDistance);
+            String footer;
+            if (!state.enabled()) {
+                footer = tr("outline.off");
+            } else if (focus >= 0) {
+                footer = tr(state.color(focus) != 0 ? "outline.shown" : "outline.hidden", tierName(focus));
+            } else {
+                footer = tr("outline.distance", state.maxDistance());
+            }
+            line(g, footer, x, groundY + 18, width, TEXT);
         }
 
         @Override
         public int height(int width) {
-            return 72;
-        }
-
-        /** A small humanoid: head, body, legs. */
-        private static void mob(GuiGraphicsExtractor g, int x, int y, int outline) {
-            if (outline != 0) {
-                g.fill(x + 1, y - 1, x + 11, y + 37, outline);
-                g.fill(x - 1, y + 9, x + 13, y + 23, outline);
-            }
-            g.fill(x + 2, y, x + 10, y + 8, MOB);
-            g.fill(x, y + 10, x + 12, y + 22, MOB_DARK);
-            g.fill(x + 2, y + 22, x + 10, y + 36, MOB);
-            g.fill(x + 5, y + 22, x + 7, y + 36, MOB_DARK);
-        }
-
-        /** The outline of the hidden part, drawn over the wall. */
-        private static void outlineOnly(GuiGraphicsExtractor g, int x, int y, int color, int fromY) {
-            int top = Math.max(fromY, y + 18);
-            g.fill(x + 1, top, x + 2, y + 37, color);
-            g.fill(x + 10, top, x + 11, y + 37, color);
-            g.fill(x + 1, y + 36, x + 11, y + 37, color);
-            g.fill(x - 1, top, x, y + 23, color);
-            g.fill(x + 12, top, x + 13, y + 23, color);
+            return 4 + Math.round(32 * (width / 3 >= 36 ? 2 : 1.5f)) + 28;
         }
     }
 
-    private static boolean[] savedOutline() {
-        Config.Outline o = Config.get().outline;
-        return new boolean[]{o.enabled, o.throughWalls, o.rare, o.ultra, o.infernal};
-    }
-
-    private static Outline outlineFlag(int index, boolean wall) {
-        return new Outline() {
+    private static Tiers tiers(int focus, int index) {
+        return new Tiers(focus) {
             @Override
-            boolean[] flags(Object value) {
-                boolean[] flags = savedOutline();
-                flags[index] = (Boolean) value;
-                return flags;
-            }
-
-            @Override
-            boolean showWall() {
-                return wall;
+            OutlineState state(Object value) {
+                OutlineState saved = OutlineState.saved();
+                boolean edited = (Boolean) value;
+                if (index < 0) {
+                    return new OutlineState(edited, saved.throughWalls(), saved.maxDistance(), saved.tiers());
+                }
+                boolean[] tiers = saved.tiers().clone();
+                tiers[index] = edited;
+                return new OutlineState(saved.enabled(), saved.throughWalls(), saved.maxDistance(), tiers);
             }
         };
     }
 
     public static final class OutlineEnabled implements PreviewRenderer {
-        private final Outline outline = outlineFlag(0, false);
+        private final Tiers scene = tiers(-1, -1);
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
+            scene.render(g, x, y, width, height, value, delta);
         }
 
         @Override
         public int height(int width) {
-            return outline.height(width);
-        }
-    }
-
-    public static final class OutlineThroughWalls implements PreviewRenderer {
-        private final Outline outline = outlineFlag(1, true);
-
-        @Override
-        public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
-        }
-
-        @Override
-        public int height(int width) {
-            return outline.height(width);
+            return scene.height(width);
         }
     }
 
     public static final class OutlineRare implements PreviewRenderer {
-        private final Outline outline = outlineFlag(2, false);
+        private final Tiers scene = tiers(0, 0);
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
+            scene.render(g, x, y, width, height, value, delta);
         }
 
         @Override
         public int height(int width) {
-            return outline.height(width);
+            return scene.height(width);
         }
     }
 
     public static final class OutlineUltra implements PreviewRenderer {
-        private final Outline outline = outlineFlag(3, false);
+        private final Tiers scene = tiers(1, 1);
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
+            scene.render(g, x, y, width, height, value, delta);
         }
 
         @Override
         public int height(int width) {
-            return outline.height(width);
+            return scene.height(width);
         }
     }
 
     public static final class OutlineInfernal implements PreviewRenderer {
-        private final Outline outline = outlineFlag(4, false);
+        private final Tiers scene = tiers(2, 2);
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
+            scene.render(g, x, y, width, height, value, delta);
         }
 
         @Override
         public int height(int width) {
-            return outline.height(width);
+            return scene.height(width);
         }
     }
 
-    public static final class OutlineDistance implements PreviewRenderer {
-        private final Outline outline = new Outline() {
-            @Override
-            boolean[] flags(Object value) {
-                return savedOutline();
-            }
-
-            @Override
-            String footer(Object value) {
-                return tr("outline.distance", ((Number) value).intValue());
-            }
-        };
+    /**
+     * Two zombies of the highest outlined tier: one in the open, one fully behind a stone brick wall. The game
+     * outlines the hidden one only when the outline is visible through walls; otherwise it needs a line of sight.
+     */
+    public static final class OutlineThroughWalls implements PreviewRenderer {
 
         @Override
         public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
-            outline.render(g, x, y, width, height, value, delta);
+            OutlineState saved = OutlineState.saved();
+            boolean throughWalls = (Boolean) value;
+            int color = saved.topColor();
+            int half = width / 2;
+            float scale = half >= 40 ? 2 : 1.5f;
+            int dollW = Math.round(16 * scale);
+            int dollH = Math.round(32 * scale);
+            int top = y + 6;
+            int groundY = top + dollH;
+            g.fill(x, groundY, x + width, groundY + 1, GROUND);
+
+            // in the open: outlined with or without the option
+            int openX = x + (half - dollW) / 2;
+            zombie(g, openX, top, scale, color, true);
+            centered(g, tr("outline.visible"), x + half / 2, groundY + 4, DIM);
+
+            // behind the wall: the wall is drawn over the zombie, then its outline over the wall
+            int hiddenX = x + half + (half - dollW) / 2;
+            int wallX0 = x + half + 4;
+            int wallX1 = x + width;
+            int wallY0 = y;
+            int clipX1 = x + width;
+            int clipY1 = groundY;
+            wall(g, wallX0, wallY0, wallX1, groundY, x, y, clipX1, clipY1);
+            g.fill(wallX0, wallY0, wallX0 + 1, groundY, 0x60000000);
+            if (throughWalls && color != 0) {
+                zombie(g, hiddenX, top, scale, color, false);
+                // the body stays hidden: the wall is drawn again inside the silhouette
+                for (int[] p : ZOMBIE_PARTS) {
+                    int[] r = part(hiddenX, top, scale, p);
+                    wall(g, wallX0, wallY0, wallX1, groundY, r[0], r[1], r[2], r[3]);
+                }
+            }
+            centered(g, tr("outline.behindWall"), x + half + half / 2, groundY + 4, DIM);
+
+            String footer = color == 0 ? tr("outline.off") : tr(throughWalls ? "outline.walls.on" : "outline.walls.off");
+            line(g, footer, x, groundY + 18, width, TEXT);
         }
 
         @Override
         public int height(int width) {
-            return outline.height(width);
+            return 6 + Math.round(32 * (width / 2 >= 40 ? 2 : 1.5f)) + 28;
+        }
+    }
+
+    /**
+     * Zombies of the highest outlined tier going away from the player, smaller with the distance: only those within
+     * the maximum distance are outlined.
+     */
+    public static final class OutlineDistance implements PreviewRenderer {
+
+        private static float scale(int distance) {
+            return 2.2f / (1 + distance / 16f);
+        }
+
+        @Override
+        public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, Object value, float delta) {
+            int maxDistance = ((Number) value).intValue();
+            int color = OutlineState.saved().topColor();
+            int cell = width / DISTANCES.length;
+            int nearH = Math.round(32 * scale(DISTANCES[0]));
+            int groundY = y + 4 + nearH;
+            int horizonY = y + 4 + nearH / 3;
+            g.fill(x, groundY, x + width, groundY + 1, GROUND);
+            int cutX = -1;
+            for (int i = 0; i < DISTANCES.length; i++) {
+                int distance = DISTANCES[i];
+                float scale = scale(distance);
+                int dollW = Math.round(16 * scale);
+                int dollH = Math.round(32 * scale);
+                // farther mobs stand higher, towards the horizon
+                float depth = (scale - scale(DISTANCES[DISTANCES.length - 1])) / (scale(DISTANCES[0]) - scale(DISTANCES[DISTANCES.length - 1]));
+                int feetY = Math.round(horizonY + (groundY - horizonY) * depth);
+                int cellX = x + i * cell;
+                boolean outlined = distance <= maxDistance;
+                zombie(g, cellX + (cell - dollW) / 2, feetY - dollH, scale, outlined ? color : 0, true);
+                centered(g, String.valueOf(distance), cellX + cell / 2, groundY + 4, outlined && color != 0 ? color : DIM);
+                if (!outlined && cutX < 0 && i > 0) {
+                    cutX = cellX;
+                }
+            }
+            // the limit, between the last outlined zombie and the first one without outline
+            if (cutX > 0 && color != 0) {
+                for (int dy = horizonY - 4; dy < groundY + 12; dy += 3) {
+                    g.fill(cutX, dy, cutX + 1, dy + 2, (color & 0x00FFFFFF) | 0xA0000000);
+                }
+            }
+            String footer = color == 0 ? tr("outline.off") : tr("outline.distance", maxDistance);
+            line(g, footer, x, groundY + 18, width, TEXT);
+        }
+
+        @Override
+        public int height(int width) {
+            return 4 + Math.round(32 * scale(DISTANCES[0])) + 28;
         }
     }
 
