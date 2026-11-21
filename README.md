@@ -26,7 +26,7 @@ To test in game, use `./gradlew runClient` or `./gradlew runServer`.
 
 ## Configuration
 
-The config file is created on first launch at `config/infernalmobs-common.toml`. Every setting is documented in the file with its description and allowed range. The config uses Confee, so it can also be edited in game from the Mod Menu config screen, with live previews of the rarities, mob health, outline and loot.
+The config file is created on first launch at `config/infernalmobs-common.toml`. Every setting is documented in the file with its description, default value and allowed range. The config uses Confee, so it can also be edited in game from the Mod Menu config screen, with live previews of the rarities, mob health, outline and loot.
 
 A `config/InfernalMobs-common.toml` file from an older version is renamed to `infernalmobs-common.toml` on first launch, its values are kept.
 
