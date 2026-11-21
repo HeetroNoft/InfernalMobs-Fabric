@@ -350,5 +350,11 @@
   "infernalmobs.config.preview.health.range": "%s à %s",
   "infernalmobs.config.preview.outline.off": "Contour désactivé",
   "infernalmobs.config.preview.outline.distance": "Affiché jusqu'à %s blocs",
+  "infernalmobs.config.preview.outline.shown": "%s : avec contour",
+  "infernalmobs.config.preview.outline.hidden": "%s : sans contour",
+  "infernalmobs.config.preview.outline.visible": "En vue",
+  "infernalmobs.config.preview.outline.behindWall": "Caché",
+  "infernalmobs.config.preview.outline.walls.on": "À travers les blocs",
+  "infernalmobs.config.preview.outline.walls.off": "En vue directe seulement",
   "infernalmobs.config.preview.loot.title": "%s piles d'objets"
 }
