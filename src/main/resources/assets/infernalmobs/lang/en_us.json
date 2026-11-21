@@ -238,6 +238,7 @@
     "infernalmobs.config.loot.error.unknownItem": "Unknown item: %s",
     "infernalmobs.config.loot.error.noItem": "Choose an item",
     "infernalmobs.config.loot.error.invalidCount": "The count must be a whole number above 0",
+    "infernalmobs.config.loot.error.lines": "%s lines have an error: fix them to save",
     "infernalmobs.config.loot.item": "Item",
     "infernalmobs.config.loot.extras": "Additional SNBT",
     "infernalmobs.config.loot.count": "Count",
