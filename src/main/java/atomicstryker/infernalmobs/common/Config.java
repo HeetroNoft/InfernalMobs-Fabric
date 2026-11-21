@@ -26,7 +26,9 @@ import java.util.Map;
  * The loot lists use the custom widget {@code atomicstryker.infernalmobs.client.LootListWidget}, the previews of the
  * screen are drawn by {@link ConfigPreviews} (created on the client only).
  */
-@fr.heetstudio.confee.api.annotation.Config(modId = InfernalMobsCore.MOD_ID, name = "common")
+// the versions before Confee wrote config/InfernalMobs-common.toml, with a "Default:" line per option
+@fr.heetstudio.confee.api.annotation.Config(modId = InfernalMobsCore.MOD_ID, name = "common", writeDefaults = true,
+        legacyFiles = "InfernalMobs-common.toml")
 // Colors of the logo: ember red accent on neutral gray panels
 @Theme(
         accent = 0xFFC8401E,
@@ -200,11 +202,10 @@ public class Config {
     private static ConfeeConfig<Config> config;
 
     /**
-     * Moves the file of the previous versions to Confee's name, then loads it. Confee creates the file with every
-     * key and comment, and clamps the values out of range to the nearest bound.
+     * Loads the file. Confee moves the file of the previous versions to its name, creates the file with every key and
+     * comment, and clamps the values out of range to the nearest bound.
      */
     public static void register() {
-        ConfigMigration.migrate();
         config = Confee.register(Config.class);
     }
 

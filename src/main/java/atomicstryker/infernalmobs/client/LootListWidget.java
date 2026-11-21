@@ -3,8 +3,9 @@ package atomicstryker.infernalmobs.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import fr.heetstudio.confee.api.Theme;
+import fr.heetstudio.confee.api.client.ConfeeDraw;
+import fr.heetstudio.confee.api.client.ConfeeIcons;
 import fr.heetstudio.confee.api.client.OptionWidget;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
@@ -24,9 +25,10 @@ import java.util.Locale;
  * Confee widget of the loot lists (droppedItemIDs*): one line per item stack SNBT string, edited as three fields:
  * the item (in game name, with suggestions), the additional SNBT (everything but id and count) and the count.
  * <p>The list stays a list of SNBT strings in the file. A line that is not edited is written back unchanged.
- * Confee does not let a custom widget block "Save": a line with an error is shown in red and still saved, the
- * loot parser logs it and skips it when the world loads. Empty new lines are not saved.</p>
- * <p>The widget is never taller than the option panel, a long list scrolls inside the widget.</p>
+ * While a line has an error, Confee shows the summary under the widget and "Save" is disabled. Empty new lines are
+ * not saved.</p>
+ * <p>The item suggestions are drawn as an overlay over the next options; the panel scrolls to the focused line only
+ * ({@link #focusBounds()}).</p>
  */
 public class LootListWidget extends OptionWidget<List<String>> {
 
@@ -39,10 +41,9 @@ public class LootListWidget extends OptionWidget<List<String>> {
     private static final int REMOVE_W = 18;
     private static final int GAP = 3;
     private static final int SUGGESTION_H = 18;
-    private static final int VISIBLE_SUGGESTIONS = 5;
+    private static final int VISIBLE_SUGGESTIONS = 6;
     private static final int MAX_MATCHES = 200;
     private static final int ADD_H = 18;
-    private static final int MAX_HEIGHT = 360;
 
     @Nullable
     private List<LootItemChoice> choices;
@@ -61,11 +62,9 @@ public class LootListWidget extends OptionWidget<List<String>> {
     private int suggestionScroll;
     private int highlighted;
 
-    // layout, in content coordinates (0 = top of the widget when it is not scrolled)
-    private int contentHeight;
-    private int suggestionsY = -1;
+    // layout: y of the "+ Add" button relative to the widget, screen area of the suggestions (from the last frame)
     private int addY;
-    private double innerScroll;
+    private int[] suggestionArea = {0, 0, 0, 0};
 
     // ------------------------------------------------------------------ one line
 
@@ -80,6 +79,7 @@ public class LootListWidget extends OptionWidget<List<String>> {
         final String originalCount;
         @Nullable
         LootItemChoice selected;
+        // relative to the top of the widget
         int y;
 
         Row(String value) {
@@ -137,8 +137,12 @@ public class LootListWidget extends OptionWidget<List<String>> {
             return "{id:'" + id + "',count:" + countBox.getValue().trim() + (extras.isEmpty() ? "" : "," + extras) + "}";
         }
 
+        /** Error of the line; an empty new line has none, it is not saved. */
         @Nullable
         Component error() {
+            if (isBlank()) {
+                return null;
+            }
             if (selected == null) {
                 return itemBox.getValue().isBlank() ? Component.translatable(KEY + "error.noItem")
                         : Component.translatable(KEY + "error.unknownItem", itemBox.getValue());
@@ -171,6 +175,10 @@ public class LootListWidget extends OptionWidget<List<String>> {
             } catch (CommandSyntaxException e) {
                 return false;
             }
+        }
+
+        int height() {
+            return ROW_H + (error() != null ? ERROR_H : 0);
         }
     }
 
@@ -220,6 +228,27 @@ public class LootListWidget extends OptionWidget<List<String>> {
         }
     }
 
+    /** Summary of the lines with an error; Confee shows it under the widget and disables "Save". */
+    @Override
+    @Nullable
+    public Component error() {
+        int invalid = 0;
+        Component first = null;
+        for (Row row : rows) {
+            Component error = row.error();
+            if (error != null) {
+                invalid++;
+                if (first == null) {
+                    first = error;
+                }
+            }
+        }
+        if (invalid == 0) {
+            return null;
+        }
+        return invalid == 1 ? first : Component.translatable(KEY + "error.lines", invalid);
+    }
+
     // ------------------------------------------------------------------ suggestions
 
     private void openSuggestions(String text) {
@@ -256,40 +285,22 @@ public class LootListWidget extends OptionWidget<List<String>> {
 
     private int layout() {
         int y = 0;
-        suggestionsY = -1;
         for (Row row : rows) {
             row.y = y;
-            y += ROW_H;
-            if (row.error() != null) {
-                y += ERROR_H;
-            }
-            if (row == focusedRow && suggestionsShown()) {
-                suggestionsY = y;
-                y += shownSuggestions() * SUGGESTION_H + 2;
-            }
+            y += row.height();
         }
         addY = y + 2;
-        contentHeight = addY + ADD_H;
-        return contentHeight;
+        return addY + ADD_H;
     }
 
     @Override
     public int height(int width) {
         syncFromValue();
-        return Math.min(maxHeight(), layout());
+        return layout();
     }
 
-    /**
-     * The widget must fit in Confee's option panel: a focused widget taller than the panel is scrolled to its bottom,
-     * which would move the line just clicked out of view. Title bar, bottom bar and the option name take ~110 pixels.
-     */
-    private static int maxHeight() {
-        int screenHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
-        return Math.clamp(screenHeight - 110, 4 * ROW_H + ADD_H, MAX_HEIGHT);
-    }
-
-    private double maxScroll() {
-        return Math.max(0, contentHeight - height());
+    private int textWidth() {
+        return (width() - ICON_W - COUNT_W - REMOVE_W - 3 * GAP) / 2;
     }
 
     private void focus(@Nullable Row row, @Nullable EditBox box) {
@@ -303,14 +314,20 @@ public class LootListWidget extends OptionWidget<List<String>> {
         }
     }
 
-    /** Keeps a content range in view, e.g. the focused line and its suggestions. */
-    private void reveal(int top, int bottom) {
-        if (top < innerScroll) {
-            innerScroll = top;
-        } else if (bottom > innerScroll + height()) {
-            innerScroll = bottom - height();
+    /** The panel scrolls to the focused line, not to the bottom of the widget. */
+    @Override
+    @Nullable
+    public int[] focusBounds() {
+        if (focusedRow == null) {
+            return null;
         }
-        innerScroll = Math.max(0, Math.min(maxScroll(), innerScroll));
+        return new int[]{x(), y() + focusedRow.y, width(), focusedRow.height()};
+    }
+
+    /** Plain keys ([, ], Page Up...) are text while a field is focused. */
+    @Override
+    public boolean capturesText() {
+        return focusedBox != null;
     }
 
     // ------------------------------------------------------------------ rendering
@@ -319,58 +336,45 @@ public class LootListWidget extends OptionWidget<List<String>> {
     public void render(GuiGraphicsExtractor g, int x, int y, int width, int height, int mouseX, int mouseY, float delta) {
         syncFromValue();
         layout();
-        innerScroll = Math.max(0, Math.min(maxScroll(), innerScroll));
         Theme t = theme();
-        boolean scrolls = contentHeight > height;
-        boolean inside = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
-        if (scrolls) {
-            g.enableScissor(x, y, x + width, y + height);
-        }
-        int top = y - (int) innerScroll;
-        int contentW = width - (scrolls ? 4 : 0);
-        int textW = (contentW - ICON_W - COUNT_W - REMOVE_W - 3 * GAP) / 2;
+        boolean inside = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height && !overSuggestions(mouseX, mouseY);
+        int textW = (width - ICON_W - COUNT_W - REMOVE_W - 3 * GAP) / 2;
 
         for (Row row : rows) {
-            int rowY = top + row.y;
-            if (row.selected != null && row.selected.stack() != null) {
-                g.item(row.selected.stack(), x + 1, rowY + 1);
-            } else {
+            int rowY = y + row.y;
+            String id = row.selected != null ? row.selected.id() : "";
+            if (!ConfeeIcons.drawItem(g, id, x + 1, rowY + 1, 16)) {
                 outline(g, x + 3, rowY + 3, 12, 12, t.textDisabled());
             }
             int itemX = x + ICON_W;
             int extrasX = itemX + textW + GAP;
             int countX = extrasX + textW + GAP;
             int removeX = countX + COUNT_W + GAP;
-            field(g, row, row.itemBox, itemX, rowY, textW, row.selected != null, mouseX, mouseY, delta);
-            field(g, row, row.extrasBox, extrasX, rowY, textW, row.validExtras(), mouseX, mouseY, delta);
-            field(g, row, row.countBox, countX, rowY, COUNT_W, row.validCount(), mouseX, mouseY, delta);
+            field(g, row.itemBox, itemX, rowY, textW, row.isBlank() || row.selected != null, mouseX, mouseY, delta);
+            field(g, row.extrasBox, extrasX, rowY, textW, row.validExtras(), mouseX, mouseY, delta);
+            field(g, row.countBox, countX, rowY, COUNT_W, row.validCount(), mouseX, mouseY, delta);
 
-            boolean removeHover = inside && enabled() && over(mouseX, mouseY, removeX, rowY, REMOVE_W, FIELD_H);
-            button(g, removeX, rowY, REMOVE_W, FIELD_H, "×", removeHover);
+            boolean removeHover = inside && over(mouseX, mouseY, removeX, rowY, REMOVE_W, FIELD_H);
+            ConfeeDraw.button(g, t, removeX, rowY, REMOVE_W, FIELD_H, Component.literal("×"), removeHover, false, enabled());
 
             Component error = row.error();
             if (error != null) {
-                g.text(font(), font().plainSubstrByWidth(error.getString(), contentW - ICON_W), x + ICON_W, rowY + ROW_H, t.error());
+                ConfeeDraw.textFit(g, error, x + ICON_W, rowY + ROW_H, width - ICON_W, t.error());
             }
         }
 
-        if (suggestionsY >= 0) {
-            renderSuggestions(g, x + ICON_W, top + suggestionsY, Math.max(textW * 2 + GAP, 160), inside, mouseX, mouseY);
-        }
+        boolean addHover = inside && over(mouseX, mouseY, x, y + addY, width, ADD_H);
+        ConfeeDraw.button(g, t, x, y + addY, width, ADD_H, Component.literal("+ ").append(Component.translatable(KEY + "add")),
+                addHover, false, enabled());
 
-        boolean addHover = inside && enabled() && over(mouseX, mouseY, x, top + addY, contentW, ADD_H);
-        button(g, x, top + addY, contentW, ADD_H, "+ " + Component.translatable(KEY + "add").getString(), addHover);
-
-        if (scrolls) {
-            g.disableScissor();
-            int barH = Math.max(12, height * height / contentHeight);
-            int barY = y + (int) ((height - barH) * innerScroll / maxScroll());
-            g.fill(x + width - 2, y, x + width, y + height, t.panelBgDeep());
-            g.fill(x + width - 2, barY, x + width, barY + barH, t.textDisabled());
+        // where the suggestions go: under the item field of the focused line
+        if (focusedRow != null) {
+            int sy = y + focusedRow.y + FIELD_H + 1;
+            suggestionArea = new int[]{x + ICON_W, sy, Math.max(2 * textW + GAP, 160), shownSuggestions() * SUGGESTION_H};
         }
     }
 
-    private void field(GuiGraphicsExtractor g, Row row, EditBox box, int x, int y, int width, boolean valid,
+    private void field(GuiGraphicsExtractor g, EditBox box, int x, int y, int width, boolean valid,
                        int mouseX, int mouseY, float delta) {
         Theme t = theme();
         boolean active = focused() && box == focusedBox;
@@ -386,8 +390,28 @@ public class LootListWidget extends OptionWidget<List<String>> {
         box.extractRenderState(g, mouseX, mouseY, delta);
     }
 
-    private void renderSuggestions(GuiGraphicsExtractor g, int x, int y, int width, boolean inside, int mouseX, int mouseY) {
+    @Override
+    @Nullable
+    public int[] overlayBounds() {
+        return suggestionsShown() ? suggestionArea : null;
+    }
+
+    private boolean overSuggestions(double mouseX, double mouseY) {
+        int[] area = overlayBounds();
+        return area != null && over(mouseX, mouseY, area[0], area[1], area[2], area[3]);
+    }
+
+    /** The item suggestions, over the next lines and options. */
+    @Override
+    public void renderOverlay(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+        int[] area = overlayBounds();
+        if (area == null) {
+            return;
+        }
         Theme t = theme();
+        int x = area[0];
+        int y = area[1];
+        int width = area[2];
         int shown = shownSuggestions();
         int height = shown * SUGGESTION_H;
         g.fill(x - 1, y - 1, x + width + 1, y + height + 1, t.outline());
@@ -396,25 +420,21 @@ public class LootListWidget extends OptionWidget<List<String>> {
             int index = suggestionScroll + i;
             LootItemChoice choice = matches.get(index);
             int rowY = y + i * SUGGESTION_H;
-            boolean hovered = inside && over(mouseX, mouseY, x, rowY, width, SUGGESTION_H);
+            boolean hovered = over(mouseX, mouseY, x, rowY, width, SUGGESTION_H);
             boolean current = index == highlighted;
             if (current) {
                 g.fill(x, rowY, x + width, rowY + SUGGESTION_H, t.accent());
             } else if (hovered) {
                 g.fill(x, rowY, x + width, rowY + SUGGESTION_H, t.panelBg());
             }
-            if (choice.stack() != null) {
-                g.item(choice.stack(), x + 1, rowY + 1);
-            }
-            int textColor = current ? t.onAccentText() : t.textOnDark();
-            int nameW = font().width(choice.name());
+            ConfeeIcons.drawItem(g, choice.id(), x + 1, rowY + 1, 16);
             int textX = x + ICON_W;
-            int room = width - ICON_W - 4;
-            g.text(font(), font().plainSubstrByWidth(choice.name(), room), textX, rowY + 5, textColor);
+            int nameEnd = ConfeeDraw.text(g, Component.literal(font().plainSubstrByWidth(choice.name(), width - ICON_W - 4)),
+                    textX, rowY + 5, current ? t.onAccentText() : t.textOnDark());
             // the id after the name when it fits
-            int idX = textX + nameW + 6;
+            int idX = nameEnd + 6;
             if (idX + 20 < x + width) {
-                g.text(font(), font().plainSubstrByWidth(choice.id(), x + width - 4 - idX), idX, rowY + 5,
+                ConfeeDraw.textFit(g, Component.literal(choice.id()), idX, rowY + 5, x + width - 4 - idX,
                         current ? t.onAccentText() : t.textDisabled());
             }
         }
@@ -425,16 +445,26 @@ public class LootListWidget extends OptionWidget<List<String>> {
         }
     }
 
-    /** Confee button look: light face, darker bottom edge. */
-    private void button(GuiGraphicsExtractor g, int x, int y, int width, int height, String text, boolean hover) {
-        Theme t = theme();
-        int face = !enabled() ? t.toggleOffTrack() : hover ? t.buttonFaceHover() : t.buttonFace();
-        g.fill(x, y, x + width, y + height, t.outline());
-        g.fill(x + 1, y + 1, x + width - 1, y + height - 1, t.buttonShadow());
-        g.fill(x + 1, y + 1, x + width - 1, y + height - 3, face);
-        int textW = font().width(text);
-        // no shadow: a dark shadow makes dark text on a light face unreadable
-        g.text(font(), text, x + (width - textW) / 2, y + (height - 2 - 8) / 2, t.textOnLight(), false);
+    @Override
+    public boolean overlayClicked(double mouseX, double mouseY, int button) {
+        int[] area = overlayBounds();
+        if (area == null || button != 0) {
+            return false;
+        }
+        int index = suggestionScroll + (int) ((mouseY - area[1]) / SUGGESTION_H);
+        if (index >= 0 && index < matches.size()) {
+            select(matches.get(index));
+        }
+        return true;
+    }
+
+    @Override
+    public boolean overlayScrolled(double mouseX, double mouseY, double delta) {
+        if (overlayBounds() == null) {
+            return false;
+        }
+        suggestionScroll = Math.clamp(suggestionScroll - (int) Math.signum(delta), 0, matches.size() - shownSuggestions());
+        return true;
     }
 
     private static void outline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
@@ -455,32 +485,19 @@ public class LootListWidget extends OptionWidget<List<String>> {
         if (button != 0) {
             return false;
         }
-        int top = y() - (int) innerScroll;
-        boolean scrolls = contentHeight > height();
-        int contentW = width() - (scrolls ? 4 : 0);
-        int textW = (contentW - ICON_W - COUNT_W - REMOVE_W - 3 * GAP) / 2;
-
-        if (suggestionsY >= 0) {
-            int sx = x() + ICON_W;
-            int sy = top + suggestionsY;
-            int sw = Math.max(textW * 2 + GAP, 160);
-            if (over(mouseX, mouseY, sx, sy, sw, shownSuggestions() * SUGGESTION_H)) {
-                select(matches.get(suggestionScroll + (int) ((mouseY - sy) / SUGGESTION_H)));
-                return true;
-            }
-        }
-        if (over(mouseX, mouseY, x(), top + addY, contentW, ADD_H)) {
+        int textW = textWidth();
+        if (over(mouseX, mouseY, x(), y() + addY, width(), ADD_H)) {
             playClick();
             Row row = new Row("");
             rows.add(row);
             focus(row, row.itemBox);
             openSuggestions("");
             layout();
-            reveal(row.y, contentHeight);
+            revealFocus();
             return true;
         }
         for (Row row : List.copyOf(rows)) {
-            int rowY = top + row.y;
+            int rowY = y() + row.y;
             int removeX = x() + ICON_W + 2 * textW + COUNT_W + 3 * GAP;
             if (over(mouseX, mouseY, removeX, rowY, REMOVE_W, FIELD_H)) {
                 playClick();
@@ -514,24 +531,6 @@ public class LootListWidget extends OptionWidget<List<String>> {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (suggestionsY >= 0) {
-            int sy = y() - (int) innerScroll + suggestionsY;
-            if (mouseY >= sy && mouseY < sy + shownSuggestions() * SUGGESTION_H) {
-                suggestionScroll = Math.clamp(suggestionScroll - (int) Math.signum(delta), 0, matches.size() - shownSuggestions());
-                return true;
-            }
-        }
-        if (maxScroll() <= 0) {
-            return false;
-        }
-        double before = innerScroll;
-        innerScroll = Math.max(0, Math.min(maxScroll(), innerScroll - delta * ROW_H));
-        // at either end, the screen scrolls instead
-        return innerScroll != before;
-    }
-
-    @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (focusedBox == null || focusedRow == null) {
             return false;
@@ -548,6 +547,10 @@ public class LootListWidget extends OptionWidget<List<String>> {
                     select(matches.get(highlighted));
                     return true;
                 }
+                case InputConstants.KEY_ESCAPE -> {
+                    suggestionsOpen = false;
+                    return true;
+                }
                 default -> {
                 }
             }
@@ -560,25 +563,12 @@ public class LootListWidget extends OptionWidget<List<String>> {
                 int field = focusedRow.boxes().indexOf(focusedBox);
                 suggestionsOpen = false;
                 focus(row, row.boxes().get(field));
-                layout();
-                reveal(row.y, row.y + ROW_H);
+                revealFocus();
             }
             return true;
         }
-        if (key == InputConstants.KEY_ESCAPE) {
-            if (suggestionsOpen) {
-                suggestionsOpen = false;
-                return true;
-            }
-            return false;
-        }
-        if (focusedBox.keyPressed(new KeyEvent(key, scanCode, modifiers))) {
-            return true;
-        }
-        // a plain key is text while a field is focused, it must not trigger a screen shortcut;
-        // combinations (Ctrl+Tab to change category...) go to the screen
-        int combination = InputConstants.MOD_CONTROL | InputConstants.MOD_ALT | InputConstants.MOD_SUPER;
-        return (modifiers & combination) == 0;
+        // Ctrl+Tab, Ctrl+F... go to the screen when the field does not use them
+        return focusedBox.keyPressed(new KeyEvent(key, scanCode, modifiers));
     }
 
     @Override
