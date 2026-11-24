@@ -34,7 +34,7 @@
     "minecraft": "~${minecraft_version}",
     "java": ">=25",
     "fabric-api": "*",
-    "confee": "*"
+    "confee": ">=0.3.0"
   },
   "suggests": {
     "modmenu": "*"
