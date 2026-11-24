@@ -6,6 +6,7 @@ import fr.heetstudio.confee.api.ConfeeConfig;
 import fr.heetstudio.confee.api.OnFileError;
 import fr.heetstudio.confee.api.SuggestionSource;
 import fr.heetstudio.confee.api.annotation.AllowDuplicates;
+import fr.heetstudio.confee.api.annotation.Color;
 import fr.heetstudio.confee.api.annotation.Comment;
 import fr.heetstudio.confee.api.annotation.Dimension;
 import fr.heetstudio.confee.api.annotation.Hidden;
@@ -72,6 +73,22 @@ public class Config {
     @Range(min = 1)
     @Preview(renderer = ConfigPreviews.Rarity.class)
     public int infernoRarity = 7;
+
+    @Comment("Defines the color of Rare mobs: their outline, their name and their boss bar\n" +
+            "(the boss bar takes the closest of its 7 colors).")
+    @Color
+    @Preview(renderer = ConfigPreviews.Colors.class)
+    public int rareColor = TierColors.DEFAULT_RARE;
+
+    @Comment("Defines the color of Ultra mobs: their outline, their name and their boss bar.")
+    @Color
+    @Preview(renderer = ConfigPreviews.Colors.class)
+    public int ultraColor = TierColors.DEFAULT_ULTRA;
+
+    @Comment("Defines the color of Infernal mobs: their outline, their name and their boss bar.")
+    @Color
+    @Preview(renderer = ConfigPreviews.Colors.class)
+    public int infernalColor = TierColors.DEFAULT_INFERNAL;
 
     @Comment("Determines whether entities are identified by their Java class name (e.g. Zombie) instead of their\n" +
             "registry name (e.g. zombie) in permittedentities, entitiesalwaysinfernal and entitybasehealth.")
@@ -150,7 +167,7 @@ public class Config {
     public List<String> entityTagBlackList = new ArrayList<>();
 
     @Comment("Settings of the colored outline drawn around infernal mobs, only used on the client.\n" +
-            "Rare mobs are outlined in green, Ultra mobs in yellow and Infernal mobs in red.")
+            "Each tier is outlined in its color (rareColor, ultraColor, infernalColor).")
     public Outline outline = new Outline();
 
     // the tables below are filled in at runtime, they are only in the file

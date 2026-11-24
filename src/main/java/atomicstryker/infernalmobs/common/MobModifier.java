@@ -1,6 +1,5 @@
 package atomicstryker.infernalmobs.common;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
@@ -476,7 +475,6 @@ public abstract class MobModifier {
                 modprefix = translateGendered("translation.infernalmobs:prefix." + modprefix, feminine);
             }
 
-            ChatFormatting color = size <= 5 ? ChatFormatting.AQUA : size <= 10 ? ChatFormatting.YELLOW : ChatFormatting.GOLD;
             String rarity = translateGendered(size <= 5 ? "translation.infernalmobs:rareClass"
                     : size <= 10 ? "translation.infernalmobs:ultraClass" : "translation.infernalmobs:infernalClass", feminine);
 
@@ -491,7 +489,8 @@ public abstract class MobModifier {
 
             // word order comes from the translation: %1$s rarity, %2$s prefix, %3$s entity, %4$s suffix
             String name = I18n.get("translation.infernalmobs:nameFormat", rarity, modprefix, entityName, suffix);
-            bufferedEntityName = color + name.replaceAll(" +", " ").trim();
+            // the boss bar colors the name in the color of the tier
+            bufferedEntityName = name.replaceAll(" +", " ").trim();
         }
 
         return bufferedEntityName;
