@@ -8,8 +8,12 @@ import fr.heetstudio.confee.api.client.ConfeeIcons;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Locale;
 
@@ -40,9 +44,24 @@ public final class ConfigPreviews {
         return Component.translatable(KEY + key, args).getString();
     }
 
-    private static String percent(double chance) {
-        double value = chance * 100;
-        return String.format(Locale.ROOT, value >= 1 ? "%.1f %%" : value >= 0.01 ? "%.2f %%" : "%.4f %%", value);
+    /**
+     * A number in the player's language ("1 000", "9,5" in French): whole above 10, one decimal below. The grouping
+     * separator is a plain space when the language uses a no-break one, which the game font may not have.
+     */
+    private static String number(double value) {
+        String tag = Minecraft.getInstance().options.languageCode.replace('_', '-');
+        DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.forLanguageTag(tag));
+        if (Character.isSpaceChar(symbols.getGroupingSeparator())) {
+            symbols.setGroupingSeparator(' ');
+        }
+        return new DecimalFormat(value >= 10 ? "#,##0" : "#,##0.#", symbols).format(value);
+    }
+
+    /** Right-aligned text whose right edge is {@code rightX}; returns its left x. */
+    private static int rightText(GuiGraphics g, String text, int rightX, int y, int color) {
+        int left = rightX - font().width(text);
+        ConfeeDraw.text(g, Component.literal(text), left, y, color);
+        return left;
     }
 
     /**
@@ -93,10 +112,6 @@ public final class ConfigPreviews {
             ConfeeDraw.textFit(g, Component.literal(text), x, y, width, color);
         }
 
-        static void right(GuiGraphics g, String text, int rightX, int y, int color) {
-            ConfeeDraw.text(g, Component.literal(text), rightX - font().width(text), y, color);
-        }
-
         static void centered(GuiGraphics g, String text, int centerX, int y, int color) {
             ConfeeDraw.text(g, Component.literal(text), centerX - font().width(text) / 2, y, color);
         }
@@ -105,81 +120,123 @@ public final class ConfigPreviews {
     // ------------------------------------------------------------------ rarities
 
     /**
-     * Share of the hostile mobs of each tier: Rare 1/elite, Ultra 1/(elite x ultra), Infernal 1/(elite x ultra x inferno).
-     * The tiers stack, an Infernal mob is also counted as Rare and Ultra. Shared by the three rarity options.
+     * How many mobs of each tier spawn among N hostile mobs: Rare 1/elite, Ultra 1/(elite x ultra), Infernal
+     * 1/(elite x ultra x inferno). N is the power of ten that gives at least one Infernal mob, so every count reads as
+     * a real number of mobs. The tiers stack, an Infernal mob is also counted as Rare and Ultra. Shared by the three
+     * rarity options: the tier of the hovered option stays bright, the two others are dimmed.
      */
     public static final class Rarity extends Scene {
 
+        private static final String[] PATHS = {"eliteRarity", "ultraRarity", "infernoRarity"};
+        private static final int ROW = 27;
+
         @Override
         void draw(GuiGraphics g, int x, int y, int width, int height, Theme t) {
-            double rare = 1.0 / Math.max(1, integer("eliteRarity", 15));
-            double ultra = rare / Math.max(1, integer("ultraRarity", 7));
-            double infernal = ultra / Math.max(1, integer("infernoRarity", 7));
-            text(g, tr("rarity.title"), x, y, width, t.textOnDark());
-            tier(g, t, x, y + 14, width, tr("rare"), rare, RARE);
-            tier(g, t, x, y + 40, width, tr("ultra"), ultra, ULTRA);
-            tier(g, t, x, y + 66, width, tr("infernal"), infernal, INFERNAL);
-        }
+            int elite = Math.max(1, integer("eliteRarity", 15));
+            int ultra = Math.max(1, integer("ultraRarity", 7));
+            int inferno = Math.max(1, integer("infernoRarity", 7));
+            // 1 in this many hostile mobs, per tier
+            double[] oneIn = {elite, (double) elite * ultra, (double) elite * ultra * inferno};
+            double mobs = Math.min(1e9, Math.max(10, Math.pow(10, Math.ceil(Math.log10(oneIn[2])))));
+            text(g, tr("rarity.title", number(mobs)), x, y, width, t.textOnDark());
 
-        private static void tier(GuiGraphics g, Theme t, int x, int y, int width, String name, double chance, int color) {
-            text(g, name, x, y, width / 2, color);
-            right(g, percent(chance), x + width, y, t.textOnDark());
-            text(g, tr("rarity.oneIn", Math.round(1 / chance)), x, y + 10, width, t.textDisabled());
-            // bar on a log scale, 100 % to 1 in 100 000
-            int barY = y + 20;
-            g.fill(x, barY, x + width, barY + 2, t.panelBg());
-            double fill = Math.max(0, 1 + Math.log10(chance) / 5);
-            g.fill(x, barY, x + (int) (width * fill), barY + 2, color);
+            int focus = List.of(PATHS).indexOf(path());
+            for (int tier = 0; tier < 3; tier++) {
+                int rowY = y + 16 + tier * ROW;
+                boolean dimmed = focus >= 0 && tier != focus;
+                int nameColor = dimmed ? t.dimmed(TIER_COLORS[tier]) : TIER_COLORS[tier];
+                int valueColor = dimmed ? t.dimmed(t.textOnDark()) : t.textOnDark();
+                rightText(g, number(mobs / oneIn[tier]), x + width, rowY, valueColor);
+                text(g, tierName(tier), x, rowY, width / 2, nameColor);
+                text(g, tr("rarity.oneIn", number(oneIn[tier])), x, rowY + 10, width,
+                        dimmed ? t.dimmed(t.textDisabled()) : t.textDisabled());
+            }
         }
 
         @Override
         public int height(int width) {
-            return 92;
+            return 16 + 3 * ROW - 6;
         }
     }
 
     // ------------------------------------------------------------------ health
 
+    private static final Identifier HEART = Identifier.withDefaultNamespace("hud/heart/full");
+    private static final Identifier HEART_CONTAINER = Identifier.withDefaultNamespace("hud/heart/container");
+
+    /** A heart of the health bar, 9 x 9; {@code tint} dims it ({@code 0xFFFFFFFF} for the real colors). */
+    private static void heart(GuiGraphics g, int x, int y, int tint) {
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART_CONTAINER, x, y, 9, 9, tint);
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, HEART, x, y, 9, 9, tint);
+    }
+
     /**
-     * Max health of a zombie (20 health points) per tier: base health x number of modifiers x health factor.
-     * Rare mobs get 2 to 4 modifiers, Ultra mobs 3 to 4 more, Infernal mobs 3 to 4 more again. Shared by the health
-     * factor and the "health changes disabled" toggle.
+     * Max health of a zombie per tier, in hearts as on the health bar (a heart is 2 health points): base health x
+     * number of modifiers x health factor. Rare mobs get 2 to 4 modifiers, Ultra mobs 3 to 4 more, Infernal mobs 3 to
+     * 4 more again. The bars share one scale, with a tick at the vanilla health. Shared by the health factor and the
+     * "health changes disabled" toggle.
      */
     public static final class Health extends Scene {
 
+        /** Health points of a zombie. */
         private static final int BASE = 20;
+        /** Modifier counts of each tier: min, max. */
+        private static final int[][] MODIFIERS = {{2, 4}, {5, 8}, {8, 12}};
+        private static final int ROW = 22;
 
         @Override
         void draw(GuiGraphics g, int x, int y, int width, int height, Theme t) {
-            text(g, tr("health.title", BASE), x, y, width, t.textOnDark());
-            if (flag("healthChangesDisabled")) {
-                text(g, tr("health.vanilla", BASE), x, y + 16, width, t.textDisabled());
-                return;
+            boolean disabled = flag("healthChangesDisabled");
+            double factor = Math.max(0, option("modHealthFactor", Number.class, 1.0).doubleValue());
+            text(g, tr("health.title"), x, y, width, t.textOnDark());
+
+            // first row: the vanilla health, or why every tier keeps it
+            int rowY = y + 14;
+            if (disabled) {
+                text(g, tr("health.vanilla"), x, rowY + 1, width, t.textDisabled());
+            } else {
+                hearts(g, t, x, rowY, width, tr("health.vanillaRow"), BASE, BASE, t.textDisabled(), false);
             }
-            double factor = option("modHealthFactor", Number.class, 1.0).doubleValue();
-            int max = (int) Math.ceil(BASE * 12 * factor);
-            tier(g, t, x, y + 16, width, tr("rare"), BASE * 2 * factor, BASE * 4 * factor, max, RARE);
-            tier(g, t, x, y + 42, width, tr("ultra"), BASE * 5 * factor, BASE * 8 * factor, max, ULTRA);
-            tier(g, t, x, y + 68, width, tr("infernal"), BASE * 8 * factor, BASE * 12 * factor, max, INFERNAL);
+
+            double scale = disabled ? BASE : Math.max(BASE, BASE * MODIFIERS[2][1] * factor);
+            for (int tier = 0; tier < 3; tier++) {
+                int tierY = rowY + 16 + tier * ROW;
+                double min = disabled ? BASE : BASE * MODIFIERS[tier][0] * factor;
+                double max = disabled ? BASE : BASE * MODIFIERS[tier][1] * factor;
+                int color = disabled ? t.dimmed(TIER_COLORS[tier]) : TIER_COLORS[tier];
+                hearts(g, t, x, tierY, width, tierName(tier), min, max, color, disabled);
+                if (!disabled) {
+                    bar(g, t, x, tierY + 12, width, min / scale, max / scale, BASE / scale, color);
+                }
+            }
         }
 
-        private static void tier(GuiGraphics g, Theme t, int x, int y, int width, String name, double min, double max,
-                                 int scale, int color) {
-            text(g, name, x, y, width / 2, color);
-            right(g, tr("health.range", Math.round(min), Math.round(max)), x + width, y, t.textOnDark());
-            int barY = y + 11;
-            g.fill(x, barY, x + width, barY + 4, t.panelBg());
-            if (scale > 0) {
-                int from = (int) (width * min / scale);
-                int to = Math.max(from + 1, (int) (width * max / scale));
-                g.fill(x, barY, x + from, barY + 4, Theme.mix(color, t.panelBg(), 0.6f));
-                g.fill(x + from, barY, x + to, barY + 4, color);
-            }
+        /** Tier name on the left, "20 to 40" and a heart on the right. */
+        private static void hearts(GuiGraphics g, Theme t, int x, int y, int width, String name, double min,
+                                   double max, int nameColor, boolean dimmed) {
+            // a heart is 2 health points, shown to the half heart
+            double from = Math.round(min) / 2.0;
+            double to = Math.round(max) / 2.0;
+            String value = from == to ? number(from) : tr("health.range", number(from), number(to));
+            heart(g, x + width - 9, y, dimmed ? Theme.mix(0xFFFFFFFF, t.panelBgDeep(), 0.55f) : 0xFFFFFFFF);
+            int left = rightText(g, value, x + width - 12, y + 1, dimmed ? t.textDisabled() : t.textOnDark());
+            text(g, name, x, y + 1, Math.max(0, left - x - 4), nameColor);
+        }
+
+        /** The range of a tier on the shared scale (0 to 1), and the tick of the vanilla health. */
+        private static void bar(GuiGraphics g, Theme t, int x, int y, int width, double from, double to,
+                                double vanilla, int color) {
+            g.fill(x, y, x + width, y + 3, t.panelBg());
+            int x0 = x + (int) Math.round(width * Math.min(1, from));
+            int x1 = Math.max(x0 + 2, x + (int) Math.round(width * Math.min(1, to)));
+            g.fill(x0, y, Math.min(x + width, x1), y + 3, color);
+            int tick = x + (int) Math.round(width * Math.min(1, vanilla));
+            g.fill(tick, y - 1, tick + 1, y + 4, t.textOnDark());
         }
 
         @Override
         public int height(int width) {
-            return 88;
+            return 14 + 16 + 3 * ROW - 4;
         }
     }
 
@@ -224,7 +281,7 @@ public final class ConfigPreviews {
         void draw(GuiGraphics g, int x, int y, int width, int height, Theme t) {
             switch (path()) {
                 case "outline.throughWalls" -> throughWalls(g, x, y, width, t);
-                case "outline.maxDistance" -> distance(g, x, y, width, t);
+                case "outline.maxDistance" -> distance(g, x, y, width, height, t);
                 case "outline.rare" -> tiers(g, x, y, width, t, 0);
                 case "outline.ultra" -> tiers(g, x, y, width, t, 1);
                 case "outline.infernal" -> tiers(g, x, y, width, t, 2);
@@ -350,18 +407,21 @@ public final class ConfigPreviews {
         }
 
         /**
-         * Zombies of the highest outlined tier going away from the player: only those within the maximum distance are
-         * outlined.
+         * Zombies of the highest outlined tier going away from the player on a field that recedes to the horizon:
+         * only those within the maximum distance are outlined. The scene fills the height of the section's preview.
          */
-        private void distance(GuiGraphics g, int x, int y, int width, Theme t) {
+        private void distance(GuiGraphics g, int x, int y, int width, int height, Theme t) {
             int maxDistance = integer("outline.maxDistance", 32);
             int color = topColor();
             int cell = width / DISTANCES.length;
             float near = distanceScale(DISTANCES[0]);
             float far = distanceScale(DISTANCES[DISTANCES.length - 1]);
-            int nearH = Math.round(32 * near);
-            int groundY = y + 4 + nearH;
-            int horizonY = y + 4 + nearH / 3;
+            // the labels and the footer below the ground, as in the other scenes
+            int groundY = y + height - 28;
+            int horizonY = y + Math.max(4, (groundY - y) / 3);
+            // the field: lighter towards the player, a line on the horizon
+            g.fillGradient(x, horizonY, x + width, groundY, t.panelBgDeep(), t.panelBg());
+            g.fill(x, horizonY, x + width, horizonY + 1, t.panelBg());
             g.fill(x, groundY, x + width, groundY + 1, t.panelBg());
             int cutX = -1;
             for (int i = 0; i < DISTANCES.length; i++) {
@@ -393,34 +453,74 @@ public final class ConfigPreviews {
 
     // ------------------------------------------------------------------ loot
 
-    /** The loot as a grid of item stacks, with their count and enchantment glint (also from the title screen). */
+    private static final Identifier SLOT = Identifier.withDefaultNamespace("container/slot");
+    // colors of the vanilla container screens (chest, inventory)
+    private static final int CONTAINER_BG = 0xFFC6C6C6;
+    private static final int CONTAINER_LIGHT = 0xFFFFFFFF;
+    private static final int CONTAINER_SHADOW = 0xFF555555;
+    private static final int CONTAINER_EDGE = 0xFF000000;
+    private static final int CONTAINER_LABEL = 0xFF404040;
+
+    /**
+     * The loot as the chest it drops into: a vanilla container panel with one slot per stack, with its count and
+     * enchantment glint (also from the title screen). A stack that cannot be read keeps its slot, tinted with the
+     * error color. Past the rows of the panel, the last slot counts the stacks left out.
+     */
     public static final class Loot extends Scene {
 
-        private static final int CELL = 18;
+        private static final int SLOT_SIZE = 18;
+        private static final int PADDING = 7;
+        private static final int LABEL_HEIGHT = 11;
+        private static final int MAX_ROWS = 5;
+
+        private static int columns(int width) {
+            return Math.max(1, Math.min(9, (width - 2 * PADDING) / SLOT_SIZE));
+        }
 
         @Override
         void draw(GuiGraphics g, int x, int y, int width, int height, Theme t) {
             List<?> entries = ownValue() instanceof List<?> list ? list : List.of();
-            text(g, tr("loot.title", entries.size()), x, y, width, t.textOnDark());
-            int columns = Math.max(1, width / CELL);
-            int index = 0;
-            for (Object entry : entries) {
-                int cx = x + (index % columns) * CELL;
-                int cy = y + 14 + (index / columns) * CELL;
-                if (cy + CELL > y + height) {
-                    break;
+            int columns = columns(width);
+            int rows = Math.max(1, Math.min(MAX_ROWS, (entries.size() + columns - 1) / columns));
+            int panelW = columns * SLOT_SIZE + 2 * PADDING;
+            int panelH = PADDING + LABEL_HEIGHT + rows * SLOT_SIZE + PADDING;
+            x += (width - panelW) / 2;
+            panel(g, x, y, panelW, panelH);
+            ConfeeDraw.textFit(g, Component.literal(tr("loot.title", entries.size())), x + PADDING + 1, y + PADDING - 1,
+                    panelW - 2 * PADDING, CONTAINER_LABEL);
+
+            int slots = rows * columns;
+            int slotsY = y + PADDING + LABEL_HEIGHT;
+            for (int i = 0; i < slots; i++) {
+                int sx = x + PADDING + (i % columns) * SLOT_SIZE;
+                int sy = slotsY + (i / columns) * SLOT_SIZE;
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, SLOT, sx, sy, SLOT_SIZE, SLOT_SIZE);
+                if (i >= entries.size()) {
+                    continue;
                 }
-                g.fill(cx, cy, cx + CELL - 1, cy + CELL - 1, t.panelBg());
-                // a stack that cannot be read leaves its cell to the next one
-                if (ConfeeIcons.drawStack(g, String.valueOf(entry), 0, cx, cy)) {
-                    index++;
+                if (i == slots - 1 && entries.size() > slots) {
+                    String more = tr("loot.more", entries.size() - slots + 1);
+                    ConfeeDraw.text(g, Component.literal(more), sx + (SLOT_SIZE - font().width(more)) / 2, sy + 5, CONTAINER_LABEL);
+                } else if (!ConfeeIcons.drawStack(g, String.valueOf(entries.get(i)), 0, sx + 1, sy + 1)) {
+                    g.fill(sx + 1, sy + 1, sx + SLOT_SIZE - 1, sy + SLOT_SIZE - 1, (t.error() & 0x00FFFFFF) | 0x90000000);
                 }
             }
         }
 
+        /** A vanilla container panel: light gray, lit from the top left, rounded corners. */
+        private static void panel(GuiGraphics g, int x, int y, int w, int h) {
+            g.fill(x + 1, y, x + w - 1, y + h, CONTAINER_EDGE);
+            g.fill(x, y + 1, x + w, y + h - 1, CONTAINER_EDGE);
+            g.fill(x + 1, y + 1, x + w - 1, y + h - 1, CONTAINER_BG);
+            g.fill(x + 1, y + 1, x + w - 2, y + 2, CONTAINER_LIGHT);
+            g.fill(x + 1, y + 1, x + 2, y + h - 2, CONTAINER_LIGHT);
+            g.fill(x + 2, y + h - 2, x + w - 1, y + h - 1, CONTAINER_SHADOW);
+            g.fill(x + w - 2, y + 2, x + w - 1, y + h - 1, CONTAINER_SHADOW);
+        }
+
         @Override
         public int height(int width) {
-            return 14 + 10 * CELL;
+            return PADDING + LABEL_HEIGHT + MAX_ROWS * SLOT_SIZE + PADDING;
         }
     }
 }
