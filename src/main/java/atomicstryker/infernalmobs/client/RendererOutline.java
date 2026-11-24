@@ -3,6 +3,7 @@ package atomicstryker.infernalmobs.client;
 import atomicstryker.infernalmobs.common.Config;
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
+import atomicstryker.infernalmobs.common.TierColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.util.ARGB;
@@ -14,11 +15,6 @@ import net.minecraft.world.entity.LivingEntity;
  * Called from {@link atomicstryker.infernalmobs.mixin.client.EntityRendererMixin}, settings in {@link Config.Outline}
  */
 public class RendererOutline {
-
-    // the green, yellow and red of the chat colors
-    private static final int RARE_COLOR = 0x55FF55;
-    private static final int ULTRA_COLOR = 0xFFFF55;
-    private static final int INFERNAL_COLOR = 0xFF5555;
 
     /**
      * @return true if the entity gets an outline that must stay visible behind blocks
@@ -44,7 +40,7 @@ public class RendererOutline {
         // same rarity thresholds as the loot drops: Rare up to 5 modifiers, Ultra up to 10, Infernal above
         int size = mods.getModSize();
         boolean shown = size <= 5 ? settings.rare : size <= 10 ? settings.ultra : settings.infernal;
-        int color = size <= 5 ? RARE_COLOR : size <= 10 ? ULTRA_COLOR : INFERNAL_COLOR;
+        int color = TierColors.rgb(TierColors.tier(size));
         if (!shown) {
             return EntityRenderState.NO_OUTLINE;
         }
