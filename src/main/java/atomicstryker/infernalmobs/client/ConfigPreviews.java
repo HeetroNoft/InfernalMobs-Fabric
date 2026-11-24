@@ -1,5 +1,7 @@
 package atomicstryker.infernalmobs.client;
 
+import atomicstryker.infernalmobs.common.TierColors;
+
 import fr.heetstudio.confee.api.PreviewContext;
 import fr.heetstudio.confee.api.PreviewRenderer;
 import fr.heetstudio.confee.api.Theme;
@@ -10,6 +12,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.BossEvent;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -25,11 +28,9 @@ import java.util.Locale;
  */
 public final class ConfigPreviews {
 
-    // same colors as the outline renderer and the boss bar names
-    private static final int RARE = 0xFF55FF55;
-    private static final int ULTRA = 0xFFFFFF55;
-    private static final int INFERNAL = 0xFFFF5555;
-    private static final int[] TIER_COLORS = {RARE, ULTRA, INFERNAL};
+    // options and defaults of the tier colors: the colors of the outline, the name and the boss bar in game
+    private static final String[] COLOR_PATHS = {"rareColor", "ultraColor", "infernalColor"};
+    private static final int[] DEFAULT_COLORS = {TierColors.DEFAULT_RARE, TierColors.DEFAULT_ULTRA, TierColors.DEFAULT_INFERNAL};
     private static final String KEY = "infernalmobs.config.preview.";
 
     private ConfigPreviews() {
@@ -99,6 +100,11 @@ public final class ConfigPreviews {
             return option(optionPath, Boolean.class, Boolean.FALSE);
         }
 
+        /** Color of a tier as edited on the screen, opaque. */
+        final int tierColor(int tier) {
+            return 0xFF000000 | integer(COLOR_PATHS[tier], DEFAULT_COLORS[tier]);
+        }
+
         final int integer(String optionPath, int fallback) {
             return option(optionPath, Number.class, fallback).intValue();
         }
@@ -143,7 +149,7 @@ public final class ConfigPreviews {
             for (int tier = 0; tier < 3; tier++) {
                 int rowY = y + 16 + tier * ROW;
                 boolean dimmed = focus >= 0 && tier != focus;
-                int nameColor = dimmed ? t.dimmed(TIER_COLORS[tier]) : TIER_COLORS[tier];
+                int nameColor = dimmed ? t.dimmed(tierColor(tier)) : tierColor(tier);
                 int valueColor = dimmed ? t.dimmed(t.textOnDark()) : t.textOnDark();
                 rightText(g, number(mobs / oneIn[tier]), x + width, rowY, valueColor);
                 text(g, tierName(tier), x, rowY, width / 2, nameColor);
@@ -205,7 +211,7 @@ public final class ConfigPreviews {
                 int tierY = rowY + 16 + tier * ROW;
                 double min = disabled ? BASE : BASE * MODIFIERS[tier][0] * factor;
                 double max = disabled ? BASE : BASE * MODIFIERS[tier][1] * factor;
-                int color = disabled ? t.dimmed(TIER_COLORS[tier]) : TIER_COLORS[tier];
+                int color = disabled ? t.dimmed(tierColor(tier)) : tierColor(tier);
                 hearts(g, t, x, tierY, width, tierName(tier), min, max, color, disabled);
                 if (!disabled) {
                     bar(g, t, x, tierY + 12, width, min / scale, max / scale, BASE / scale, color);
@@ -299,7 +305,7 @@ public final class ConfigPreviews {
 
         /** Outline color of a tier, 0 when it gets none. */
         private int color(int tier) {
-            return flag("outline.enabled") && flag(TIER_PATHS[tier]) ? TIER_COLORS[tier] : 0;
+            return flag("outline.enabled") && flag(TIER_PATHS[tier]) ? tierColor(tier) : 0;
         }
 
         /** Color of the highest tier that is outlined, 0 when none is. */
@@ -450,6 +456,60 @@ public final class ConfigPreviews {
             }
             String footer = color == 0 ? tr("outline.off") : tr("outline.distance", maxDistance);
             text(g, footer, x, groundY + 18, width, t.textOnDark());
+        }
+    }
+
+    // ------------------------------------------------------------------ colors
+
+    /**
+     * Each tier in its color as the player sees it in game: an outlined zombie, its name, and its boss bar in the
+     * closest of the 7 boss bar colors. Shared by the three color options: the tier of the hovered option stays
+     * bright, the two others are dimmed.
+     */
+    public static final class Colors extends Scene {
+
+        private static final ResourceLocation BARS = new ResourceLocation("textures/gui/bars.png");
+        private static final int ROW = 40;
+        private static final String[] CLASS_KEYS = {"translation.infernalmobs:rareClass",
+                "translation.infernalmobs:ultraClass", "translation.infernalmobs:infernalClass"};
+
+        @Override
+        void draw(GuiGraphics g, int x, int y, int width, int height, Theme t) {
+            int focus = List.of(COLOR_PATHS).indexOf(path());
+            String zombie = Component.translatable("entity.minecraft.zombie").getString();
+            for (int tier = 0; tier < 3; tier++) {
+                int rowY = y + 1 + tier * ROW;
+                int color = tierColor(tier);
+                boolean dimmed = focus >= 0 && tier != focus;
+                zombie(g, x + 1, rowY, 1, color, false);
+                int textX = x + 16 + 8;
+                int textW = width - (textX - x);
+                // the name as the boss bar shows it, e.g. "Rare Zombie"
+                String name = Component.translatable("translation.infernalmobs:nameFormat",
+                        Component.translatable(CLASS_KEYS[tier]), "", zombie, "").getString().replaceAll(" +", " ").trim();
+                text(g, name, textX, rowY + 6, textW, dimmed ? t.dimmed(color) : color);
+                BossEvent.BossBarColor bar = TierColors.bossBar(color & 0xFFFFFF);
+                bossBar(g, textX, rowY + 18, textW, bar);
+                if (dimmed) {
+                    g.fill(x, rowY - 1, x + width, rowY + 34, (t.panelBgDeep() & 0x00FFFFFF) | 0xB0000000);
+                }
+            }
+        }
+
+        /**
+         * A full boss bar of a vanilla color, up to its 182 pixels. 1.20.1 has no GUI sprites: the bars are rows of
+         * bars.png, background then progress, 10 pixels per color.
+         */
+        private static void bossBar(GuiGraphics g, int x, int y, int width, BossEvent.BossBarColor color) {
+            int w = Math.min(182, width);
+            int v = color.ordinal() * 10;
+            g.blit(BARS, x, y, 0, v, w, 5);
+            g.blit(BARS, x, y, 0, v + 5, w, 5);
+        }
+
+        @Override
+        public int height(int width) {
+            return 2 * ROW + 36;
         }
     }
 
