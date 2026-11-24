@@ -2,6 +2,7 @@ package atomicstryker.infernalmobs.client;
 
 import atomicstryker.infernalmobs.common.InfernalMobsCore;
 import atomicstryker.infernalmobs.common.MobModifier;
+import atomicstryker.infernalmobs.common.TierColors;
 import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
@@ -84,14 +85,14 @@ public class OverlayBossBar {
                     askServerHealth(ent);
 
                     UUID uuid = ent.getUUID();
-                    Component name = Component.literal(mod.getEntityDisplayName(ent));
+                    // name and bar in the color of the tier, read on each frame so a config change shows at once
+                    int rgb = TierColors.rgb(TierColors.tier(mod.getModSize()));
+                    Component name = Component.literal(mod.getEntityDisplayName(ent)).withColor(rgb);
                     float progress = mod.getActualHealth(ent) / mod.getActualMaxHealth(ent);
                     if (ent.isDeadOrDying()) {
                         progress = 0.01F;
                     }
-                    int modStr = mod.getModSize();
-                    /* green for elite, yellow for ultra, red for infernal */
-                    BossEvent.BossBarColor color = (modStr <= 5) ? BossEvent.BossBarColor.GREEN : (modStr <= 10) ? BossEvent.BossBarColor.YELLOW : BossEvent.BossBarColor.RED;
+                    BossEvent.BossBarColor color = TierColors.bossBar(rgb);
 
                     if (!vanillaBossEventsMap.containsKey(uuid)) {
                         // last 3 param bools are darkenScreen, playBossMusic and worldFog
@@ -99,6 +100,8 @@ public class OverlayBossBar {
                     } else {
                         LerpingBossEvent bossEvent = vanillaBossEventsMap.get(uuid);
                         bossEvent.setProgress(progress);
+                        bossEvent.setName(name);
+                        bossEvent.setColor(color);
                     }
 
                     // MC supports multiple bosses. Infernal Mobs does not. hide the modifier subdisplay in multi case
