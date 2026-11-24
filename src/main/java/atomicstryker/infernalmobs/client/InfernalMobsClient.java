@@ -9,7 +9,6 @@ import atomicstryker.infernalmobs.common.network.HealthPacket;
 import atomicstryker.infernalmobs.common.network.KnockBackPacket;
 import atomicstryker.infernalmobs.common.network.MobModsPacket;
 import atomicstryker.infernalmobs.common.network.VelocityPacket;
-import fr.heetstudio.confee.api.client.ConfeeWidgets;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
@@ -49,11 +48,6 @@ public class InfernalMobsClient implements ClientModInitializer {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossbar"), new OverlayBossBar.InfernalMobsHealthBarGuiOverlay());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_choking"), new OverlayChoking.InfernalMobsChokingGuiOverlay());
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(InfernalMobsCore.MOD_ID, InfernalMobsCore.MOD_ID + "_bossglow"), new RendererBossGlow.InfernalMobsBossGlowOverlay());
-
-        // the loot lists get item suggestions in the config screen
-        for (String lootList : new String[]{"droppedItemIDsElite", "droppedItemIDsUltra", "droppedItemIDsInfernal"}) {
-            ConfeeWidgets.forOption(InfernalMobsCore.MOD_ID + ":common", lootList, LootListWidget::new);
-        }
     }
 
     private void onEntityJoinedWorld(Entity entity) {
