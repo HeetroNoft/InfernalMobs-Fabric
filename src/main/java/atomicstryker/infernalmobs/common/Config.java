@@ -1,13 +1,15 @@
 package atomicstryker.infernalmobs.common;
 
 import atomicstryker.infernalmobs.client.ConfigPreviews;
-import atomicstryker.infernalmobs.client.EntityTagSuggestions;
 import fr.heetstudio.confee.api.Confee;
 import fr.heetstudio.confee.api.ConfeeConfig;
+import fr.heetstudio.confee.api.OnFileError;
+import fr.heetstudio.confee.api.SuggestionSource;
 import fr.heetstudio.confee.api.annotation.AllowDuplicates;
 import fr.heetstudio.confee.api.annotation.Comment;
 import fr.heetstudio.confee.api.annotation.Dimension;
 import fr.heetstudio.confee.api.annotation.Hidden;
+import fr.heetstudio.confee.api.annotation.ItemStack;
 import fr.heetstudio.confee.api.annotation.Preview;
 import fr.heetstudio.confee.api.annotation.Range;
 import fr.heetstudio.confee.api.annotation.RequiresRestart;
@@ -23,8 +25,7 @@ import java.util.Map;
 /**
  * Infernal Mobs config, registered with Confee and stored in config/infernalmobs-common.toml.
  * Confee writes the file (with the comments below) and generates the config screen from these fields.
- * The loot lists use the custom widget {@code atomicstryker.infernalmobs.client.LootListWidget}, the previews of the
- * screen are drawn by {@link ConfigPreviews} (created on the client only).
+ * The previews of the screen are drawn by {@link ConfigPreviews} (created on the client only).
  */
 // the versions before Confee wrote config/InfernalMobs-common.toml, with a "Default:" line per option
 @fr.heetstudio.confee.api.annotation.Config(modId = InfernalMobsCore.MOD_ID, name = "common", writeDefaults = true,
@@ -59,17 +60,17 @@ public class Config {
     @Comment("Defines the chance for a hostile mob to spawn with modifiers (Rare): 1 in this value.\n" +
             "Set it to 1 to give modifiers to every hostile mob.")
     @Range(min = 1)
-    @Preview(renderer = ConfigPreviews.EliteRarity.class)
+    @Preview(renderer = ConfigPreviews.Rarity.class)
     public int eliteRarity = 15;
 
     @Comment("Defines the chance for a Rare mob to be upgraded to Ultra (3 to 4 more modifiers): 1 in this value.")
     @Range(min = 1)
-    @Preview(renderer = ConfigPreviews.UltraRarity.class)
+    @Preview(renderer = ConfigPreviews.Rarity.class)
     public int ultraRarity = 7;
 
     @Comment("Defines the chance for an Ultra mob to be upgraded to Infernal (3 to 4 more modifiers): 1 in this value.")
     @Range(min = 1)
-    @Preview(renderer = ConfigPreviews.InfernoRarity.class)
+    @Preview(renderer = ConfigPreviews.Rarity.class)
     public int infernoRarity = 7;
 
     @Comment("Determines whether entities are identified by their Java class name (e.g. Zombie) instead of their\n" +
@@ -83,11 +84,11 @@ public class Config {
     @Comment("Defines the health multiplier of infernal mobs.\n" +
             "Max health = base health (see entitybasehealth) x number of modifiers x this value.")
     @Range(min = 0)
-    @Preview(renderer = ConfigPreviews.HealthFactor.class)
+    @Preview(renderer = ConfigPreviews.Health.class)
     public double modHealthFactor = 1D;
 
     @Comment("Determines whether infernal mobs keep their vanilla max health instead of getting more health per modifier.")
-    @Preview(renderer = ConfigPreviews.HealthDisabled.class)
+    @Preview(renderer = ConfigPreviews.Health.class)
     public boolean healthChangesDisabled = false;
 
     @Comment("Defines the multiplier applied to the cooldown of every modifier ability.\n" +
@@ -99,9 +100,11 @@ public class Config {
     @Range(min = 0)
     public double maxDamage = 10D;
 
-    // the same stack listed twice drops twice as often
+    // the same stack listed twice drops twice as often. A stack of the file that cannot be read is kept as written:
+    // ItemConfigHelper skips it with a log line, the screen shows its error until it is fixed
     @Comment("Defines the loot dropped by Rare mobs, one item stack per entry in SNBT format.\n" +
             "Example: \"{id:'minecraft:cookie',count:5}\"")
+    @ItemStack(onFileError = OnFileError.KEEP)
     @RequiresRestart
     @AllowDuplicates
     @Preview(renderer = ConfigPreviews.Loot.class)
@@ -112,6 +115,7 @@ public class Config {
             "cookie:5");
 
     @Comment("Defines the loot dropped by Ultra mobs, one item stack per entry in SNBT format.")
+    @ItemStack(onFileError = OnFileError.KEEP)
     @RequiresRestart
     @AllowDuplicates
     @Preview(renderer = ConfigPreviews.Loot.class)
@@ -123,6 +127,7 @@ public class Config {
             "golden_apple:3", "blaze_powder:5", "enchanted_book");
 
     @Comment("Defines the loot dropped by Infernal mobs, one item stack per entry in SNBT format.")
+    @ItemStack(onFileError = OnFileError.KEEP)
     @RequiresRestart
     @AllowDuplicates
     @Preview(renderer = ConfigPreviews.Loot.class)
@@ -141,7 +146,7 @@ public class Config {
     @Comment("Mobs having one of these NBT keys or scoreboard tags never get modifiers.\n" +
             "Example: [\"affixes\"] to leave the mobs of the Champions mod alone.")
     // the Champions mod marks its mobs with "affixes"; the other suggestions are the scoreboard tags of the world
-    @Suggestions(value = "affixes", provider = EntityTagSuggestions.class)
+    @Suggestions(value = "affixes", sources = SuggestionSource.SCOREBOARD_TAGS)
     public List<String> entityTagBlackList = new ArrayList<>();
 
     @Comment("Settings of the colored outline drawn around infernal mobs, only used on the client.\n" +
@@ -169,33 +174,29 @@ public class Config {
     @Hidden
     public Map<String, Double> entitybasehealth = new LinkedHashMap<>();
 
+    // one preview for the whole section, it shows the scene of the hovered option
     @Section
+    @Preview(renderer = ConfigPreviews.OutlinePreview.class)
     public static class Outline {
 
         @Comment("Determines whether infernal mobs get a colored outline.")
-        @Preview(renderer = ConfigPreviews.OutlineEnabled.class)
         public boolean enabled = true;
 
         @Comment("Determines whether the outline is visible through blocks, like the Glowing effect.\n" +
                 "When false, the outline is only drawn while the mob is in your line of sight.")
-        @Preview(renderer = ConfigPreviews.OutlineThroughWalls.class)
         public boolean throughWalls = true;
 
         @Comment("Defines the distance in blocks beyond which the outline is not drawn.")
         @Range(min = 1)
-        @Preview(renderer = ConfigPreviews.OutlineDistance.class)
         public int maxDistance = 32;
 
         @Comment("Determines whether Rare mobs get the outline.")
-        @Preview(renderer = ConfigPreviews.OutlineRare.class)
         public boolean rare = true;
 
         @Comment("Determines whether Ultra mobs get the outline.")
-        @Preview(renderer = ConfigPreviews.OutlineUltra.class)
         public boolean ultra = true;
 
         @Comment("Determines whether Infernal mobs get the outline.")
-        @Preview(renderer = ConfigPreviews.OutlineInfernal.class)
         public boolean infernal = true;
     }
 
