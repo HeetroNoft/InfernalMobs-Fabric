@@ -331,14 +331,15 @@
   "config.infernalmobs.common.outline.ultra.tooltip": "Contour jaune",
   "config.infernalmobs.common.outline.infernal": "Contour des monstres Infernaux",
   "config.infernalmobs.common.outline.infernal.tooltip": "Contour rouge",
-  "infernalmobs.config.preview.rarity.title": "Monstres hostiles",
+  "infernalmobs.config.preview.rarity.title": "Sur %s monstres",
   "infernalmobs.config.preview.rare": "Rare",
   "infernalmobs.config.preview.ultra": "Ultra",
   "infernalmobs.config.preview.infernal": "Infernal",
   "infernalmobs.config.preview.rarity.oneIn": "1 sur %s",
-  "infernalmobs.config.preview.health.title": "Vie max d'un zombie (%s)",
-  "infernalmobs.config.preview.health.vanilla": "Changements de vie désactivés : %s, comme en vanilla",
+  "infernalmobs.config.preview.health.title": "Vie max d'un zombie",
+  "infernalmobs.config.preview.health.vanilla": "Vie vanilla pour tous",
   "infernalmobs.config.preview.health.range": "%s à %s",
+  "infernalmobs.config.preview.health.vanillaRow": "Vanilla",
   "infernalmobs.config.preview.outline.off": "Contour désactivé",
   "infernalmobs.config.preview.outline.distance": "Affiché jusqu'à %s blocs",
   "infernalmobs.config.preview.outline.shown": "%s : avec contour",
@@ -347,5 +348,6 @@
   "infernalmobs.config.preview.outline.behindWall": "Caché",
   "infernalmobs.config.preview.outline.walls.on": "À travers les blocs",
   "infernalmobs.config.preview.outline.walls.off": "En vue directe seulement",
-  "infernalmobs.config.preview.loot.title": "%s piles d'objets"
+  "infernalmobs.config.preview.loot.title": "%s piles d'objets",
+  "infernalmobs.config.preview.loot.more": "+%s"
 }

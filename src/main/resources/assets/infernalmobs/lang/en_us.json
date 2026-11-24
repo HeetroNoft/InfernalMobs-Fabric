@@ -234,14 +234,15 @@
     "config.infernalmobs.common.outline.ultra.tooltip": "Yellow outline",
     "config.infernalmobs.common.outline.infernal": "Outline Infernal mobs",
     "config.infernalmobs.common.outline.infernal.tooltip": "Red outline",
-    "infernalmobs.config.preview.rarity.title": "Hostile mobs",
+    "infernalmobs.config.preview.rarity.title": "Out of %s mobs",
     "infernalmobs.config.preview.rare": "Rare",
     "infernalmobs.config.preview.ultra": "Ultra",
     "infernalmobs.config.preview.infernal": "Infernal",
     "infernalmobs.config.preview.rarity.oneIn": "1 in %s",
-    "infernalmobs.config.preview.health.title": "Max health of a zombie (%s)",
-    "infernalmobs.config.preview.health.vanilla": "Health changes are disabled: %s, as in vanilla",
+    "infernalmobs.config.preview.health.title": "Max health of a zombie",
+    "infernalmobs.config.preview.health.vanilla": "Vanilla health for all",
     "infernalmobs.config.preview.health.range": "%s to %s",
+    "infernalmobs.config.preview.health.vanillaRow": "Vanilla",
     "infernalmobs.config.preview.outline.off": "Outline disabled",
     "infernalmobs.config.preview.outline.distance": "Drawn up to %s blocks",
     "infernalmobs.config.preview.outline.shown": "%s: outlined",
@@ -250,5 +251,6 @@
     "infernalmobs.config.preview.outline.behindWall": "Hidden",
     "infernalmobs.config.preview.outline.walls.on": "Through blocks",
     "infernalmobs.config.preview.outline.walls.off": "Line of sight only",
-    "infernalmobs.config.preview.loot.title": "%s item stacks"
+    "infernalmobs.config.preview.loot.title": "%s item stacks",
+    "infernalmobs.config.preview.loot.more": "+%s"
 }
